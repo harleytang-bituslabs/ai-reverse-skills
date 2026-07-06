@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>cg02a「榴莲派对 Durian Party」UI 灰盒稿 (逆向)</title>
+<!--
+  三件套之一（配套 ART-AUDIO-CG02A.md / GDD-CG02A.md）。数据驱动：SCREENS(1080×1920 视口帧)+SCENES(竖向滚动 bg 长卷)。
+  坐标=1080×1920 画布绝对 px（源码实测）。纯灰盒。来源：crashgame-cg02a-ui/cg02a/src 11 子系统穷尽抽取 + 资产视觉审查。
+  ⚠ cg02a 暂无真机截图：所有帧 badge=code-derived（几何对固定画布为代码权威，待截图升级 validated）。
+  ⚠ 多人连续曲线 crash（Aviator 类）：榴莲 Y 固定、bg 竖向滚动、3 段换皮（lv1/lv2/lv3）营造升空感；无相机/视差/真实升空。
+-->
+<style>
+:root{--bg:#0c1018;--card:#141a24;--bd:#283242;--fg:#cdd6e2;--mut:#7d8aa0;--acc:#6db3f2;
+--k-bg:#23303f;--k-chrome:#2c3340;--k-feat:#26402c;--k-hero:#3c3414;--k-fx:#2e2440;--k-data:#163040;--k-overlay:#3a1f2e;}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.5 -apple-system,"PingFang SC","Segoe UI",sans-serif}
+header{padding:18px 24px;border-bottom:1px solid var(--bd);position:sticky;top:0;background:var(--bg);z-index:50}
+h1{margin:0 0 4px;font-size:20px}.sub{color:var(--mut);font-size:12px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:11px;color:var(--mut)}
+.legend span{display:inline-flex;align-items:center;gap:5px}.swatch{width:12px;height:12px;border-radius:2px;border:1px solid var(--bd);display:inline-block}
+.controls{margin-top:10px;font-size:12px}.controls label{margin-right:16px;cursor:pointer;color:var(--fg)}
+main{padding:22px}h2.gallery{font-size:16px;margin:30px 0 6px;border-left:3px solid var(--acc);padding-left:10px}
+.gallery-note{color:var(--mut);font-size:12px;margin:0 0 16px;max-width:1000px}
+.grid{display:flex;flex-wrap:wrap;gap:26px;align-items:flex-start}
+.frame{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:10px}
+.frame .cap{font-size:12px;font-weight:600;margin-bottom:2px}.frame .meta{font-size:11px;color:var(--mut);margin-bottom:8px;max-width:300px}
+.frame .badge{display:inline-block;font-size:10px;padding:1px 6px;border-radius:3px;margin-left:6px;vertical-align:middle}
+.badge.validated{background:#14361f;color:#67d98a}.badge.derived{background:#3a2a12;color:#e0a44a}
+.stage{position:relative;background:#070a0f;border:1px solid #1c2430;overflow:hidden}
+.box{position:absolute;border:1px solid rgba(255,255,255,.28);overflow:hidden;display:flex;flex-direction:column}
+.box .bl{font-size:9px;line-height:1.15;padding:2px 3px;color:#e7edf5;text-shadow:0 1px 2px #000;font-weight:600}
+.box .bd{font-size:8px;line-height:1.1;padding:0 3px;color:#aebccf}
+.box.bg{background:var(--k-bg)}.box.chrome{background:var(--k-chrome)}.box.feat{background:var(--k-feat)}
+.box.hero{background:var(--k-hero)}.box.fx{background:var(--k-fx);border-style:dashed}.box.data{background:var(--k-data);border-style:dashed}.box.overlay{background:var(--k-overlay);border-style:dashed}
+.box.zone{background:transparent;border:1px dashed #3a4658}.zonelabel{position:absolute;font-size:9px;color:#5f7088;padding:2px}
+details{margin:14px 0;border:1px solid var(--bd);border-radius:6px;background:var(--card)}
+summary{cursor:pointer;padding:10px 14px;font-weight:600;font-size:14px}details .body{padding:0 16px 14px;font-size:12.5px;color:#c2ccdb}
+details table{border-collapse:collapse;width:100%;margin:8px 0;font-size:12px}details th,details td{border:1px solid var(--bd);padding:5px 8px;text-align:left;vertical-align:top}details th{background:#1a2130}
+code{background:#0a0e15;padding:1px 4px;border-radius:3px;color:#8fd0a0;font-size:11.5px}
+</style>
+</head>
+<body>
+<header>
+  <h1>cg02a「榴莲派对 / Durian Party」— UI 灰盒稿（逆向，1:1 复现参考）</h1>
+  <div class="sub">多人连续曲线 crash(Aviator 类) · 画布 1080×1920 竖屏 · 坐标=绝对 px(源码实测) · 三件套：<b>ADD</b>(资产)/<b>GDD</b>(玩法)/<b>本 HTML</b>(布局)</div>
+  <div class="legend">
+    <span><i class="swatch" style="background:var(--k-bg)"></i>bg/scene</span><span><i class="swatch" style="background:var(--k-chrome)"></i>chrome</span>
+    <span><i class="swatch" style="background:var(--k-feat)"></i>featured</span><span><i class="swatch" style="background:var(--k-hero)"></i>hero</span>
+    <span><i class="swatch" style="background:var(--k-fx);border-style:dashed"></i>fx</span><span><i class="swatch" style="background:var(--k-data);border-style:dashed"></i>data</span>
+    <span><span class="badge derived">code-derived</span>代码推定·cg02a 暂无截图</span>
+  </div>
+  <div class="controls">
+    <label><input type="checkbox" id="showZones" checked> 显示分区线</label>
+    <label><input type="checkbox" id="showDims" checked> 显示尺寸/资产标注</label>
+  </div>
+</header>
+<main>
+  <h2 class="gallery">画廊 A — 屏（1080×1920 视口帧）</h2>
+  <p class="gallery-note">分区：<b>TopBar y0–80 / GameHistory y80–188 / GameView y0–1075(演出区) / PlayerHUD y1005–1920(h915)</b>。GameView 与上方条同处 ContentView(0–1075)，PlayerHUD 与之 <b>重叠 70px(1005–1075)</b>。<b>余额在底部 HUD(BalanceBar)，顶栏只有历史条 + 齿轮</b>(与 cg03a/cg03r 不同)。飞行 3 段(lv1/lv2/lv3)= bg 切换 + 榴莲换皮 + 氛围装饰 + 数字色，见下 3 帧。竖向滚动 bg 长卷见画廊 B。</p>
+  <div class="grid" id="galleryA"></div>
+
+  <h2 class="gallery">画廊 B — 竖向滚动背景长卷（bg1/bg2/bg3，超一屏）</h2>
+  <p class="gallery-note">飞行场景<b>不是可滚动的长地图</b>：榴莲钉死中心(380,330 局部)、屏幕固定。营造"升空"的是三张 <code>1080×2160</code> 背景 PNG —— 比可视游戏区(~995h)高，作 <b>TilingSprite 竖直滚动</b>(<code>tilePosition.y += 2px/帧</code>，恒速无视差)。按倍率 lv1→lv2→lv3 用 600ms alpha 交叉淡化切图。下示三张 bg tile 真高 + 可视窗 + 上滚方向。排行榜滚动内容(50 卡×224)也是超屏长卷，见画廊 A 的 all-players 帧注记。</p>
+  <div class="grid" id="galleryB"></div>
+
+  <details open><summary>① 屏幕流 / UI 状态机（触发以 GDD 为准）</summary><div class="body"><table>
+    <tr><th>状态机</th><th>切换</th><th>视觉</th></tr>
+    <tr><td>总屏幕流</td><td>boot→loading→ready→game / exception；START 点击进房(解锁音频)</td><td>DOM 覆盖层 z9999 于 Pixi 之上</td></tr>
+    <tr><td>回合相位</td><td>BETTING(5s)→RUNNING(飞行)→CASHOUT_GRACE→RESULT(详见 GDD §2)</td><td>GameView 演出 + HUD 控件态</td></tr>
+    <tr><td>飞行分级</td><td>lv1(&lt;2x) → lv2(2–10x) → lv3(≥10x)</td><td>bg1/2/3 + 榴莲皮肤 + 装饰(气球/热气球/UFO) + 数字色(蓝/绿/金)</td></tr>
+    <tr><td>双注栏 PlayButton</td><td>bet → cancel → (RUNNING) cashout/wait → (结束) next-round</td><td>A/B 两栏独立；cashout 拆 50%+FULL 双键</td></tr>
+    <tr><td>HUD 底栏 tab</td><td>My Info(下注面板) ↔ All Players(排行榜)</td><td>tab_on/off 540×100 双键切 TabPanel</td></tr>
+    <tr><td>设置面板</td><td>closed↔open；tab setting/guide/history</td><td>全屏 z999 setting_background；底栏 5 项</td></tr>
+  </table></div></details>
+
+  <details><summary>② 动画时长 / 缓动（HTML 为权威）</summary><div class="body"><table>
+    <tr><th>动画</th><th>时长/缓动</th></tr>
+    <tr><td>下注倒计时</td><td>BETTING_TOTAL_MS 5000；进度条填充 0→1，&lt;1000ms 锁定(lastSecond)；fadeout 330ms</td></tr>
+    <tr><td>待机榴莲 spine</td><td>idle3(2s)→idle2(2s)→loop；jump 0.667s(JUMP_BAKED_MS=667，倒计时≥4000ms 才播完整序列)</td></tr>
+    <tr><td>榴莲入场</td><td>y 400→0 滑入 0.6s easeOutCubic(仅开局)；之后 Y 固定不动</td></tr>
+    <tr><td>背景升级</td><td>lv 切换 600ms alpha 交叉淡化；爆裂 explode 18fps + spark 24fps + 抛 2–3 榴莲切片</td></tr>
+    <tr><td>飞行循环</td><td>bg 滚 2px/帧；woosh 每 2000ms；speedline 24fps blend add</td></tr>
+    <tr><td>倍率数字</td><td>≥6x 整体×1.10；逐字 slot bob 12px/150ms；crash slam 350ms(scale2→1)+抖250ms@12Hz/26px</td></tr>
+    <tr><td>crash 序列</td><td>CRASH_DURATION_MS 2000：spine 'end' + bg 缓停 600ms + 烟/液/情绪淡出 + roundlight×4(200ms 间隔) + UFO 光柱(100ms 延迟,4.167s end)</td></tr>
+    <tr><td>盈利数字</td><td>落下 450ms easeOutBack(从 -181px) + 抖 250ms；延迟 1000ms 出/2000ms 抖</td></tr>
+    <tr><td>弹窗</td><td>Toast/Warning/Language：scale 0.6→1 0.25s back.out(2)；关 back.in(1.6)</td></tr>
+  </table></div></details>
+
+  <details><summary>③ 飞行场景机制（详见画廊 B + GDD §3）</summary><div class="body"><ul>
+    <li><b>榴莲 Y 固定</b>：Scene2Panel 局部 (380,330) scale 0.2，panelScale 1.794；**从不随倍率移动**。`cameraShaking.ts` 死代码、无相机/视口变换。</li>
+    <li><b>三张滚动 bg</b>：bg1/bg2/bg3 各 1080×2160 TilingSprite，<code>tilePosition.y += 2px/帧</code> 恒速、无视差；lv 切换 600ms 交叉淡化。</li>
+    <li><b>氛围装饰</b>(FlyingItems，Math.random 生成、装饰性)：lv1 气球×3 / lv2 热气球×2 / lv3 UFO×2，从屏顶外落到底销毁。</li>
+    <li><b>周身特效</b>(挂 spine 骨)：smoke(4×4) / 液体(10×2) / 情绪(4×4，lv 专属) / 升级 explode(5×2)+spark(4×2) / speedline(8×3 全屏)。</li>
+    <li><b>crash</b>：UFO(5×3) 飞掠 + 光柱(色随 lv：橙/青/品红) + roundlight×4 + 榴莲切开。无碰撞检测，纯演出。</li>
+  </ul></div></details>
+
+  <details><summary>④ 控件渲染约定（资产 origin 见 ADD §5/§7）</summary><div class="body"><ul>
+    <li><b>ImageButton</b>：四态 tint(normal#E5E5E5/hover#FFF/pressed#CCC/disabled#7F7F7F) + scale(按下 0.9/抬起 1.0)。部分按钮 ship hover 件但代码未用(btn_bet_hover/btn_cancel_hover 死件)。</li>
+    <li><b>倍率/盈利数字走 SpriteDigits</b>(5 色图集 1530×181，字符 0-9/x/./,)，非字体；其余文字 runtime Pixi Text 叠在 text-free 框上(LanguageManager.bindText i18n)。</li>
+    <li><b>程序化绘制</b>(非图片)：TopBar/History/PrizePool 底色块、toast/warning 渐变描边框、设置分割线、guide 卡(tilted-olive 橄榄绿斜卡)、各面板 mask —— 运行时 Graphics/Canvas 按 theme 画。</li>
+    <li><b>语义色</b>：BET 绿描边#22D37B / CANCEL 红#d03232 / FULL CASHOUT 金#C49029 / 50% CASHOUT 橙#D8755B / WAIT 灰#848484；数字 蓝(&lt;2x)/绿(2-10x)/金(≥10x)。</li>
+  </ul></div></details>
+
+  <details><summary>⑤ 资产 / 换皮血统注记</summary><div class="body"><ul>
+    <li>cg02a 由 <b>CG02「直升机 Chopper」reskin</b>(同 crash 数学/状态机，题材 Chopper/撞钟→榴莲/UFO，UI 主色 蓝灰→橄榄绿；见 GAME_GUIDE_RESKIN.md)。</li>
+    <li><b>信 runtime 不信旧文件</b>：仓库 SCENE2_NOTES.md(chopper/钟/scene3)、how-to-play.md(足球) 都是前作残留，非本作。</li>
+    <li>余额/总注在底部 BalanceBar(940×80，左 Balance/右 Total Bet)；顶栏无余额。</li>
+    <li>孤儿/未用 13 件(btn_start 变体×3、icon_auto-cashout_blue、icon_player、tab_all_player/my_info×4、btn_bet/cancel_hover、explode.png)——复现勿生成。</li>
+  </ul></div></details>
+</main>
+
+<script>
+/* ===== 共享分组 ===== */
+const TOPBAR=[
+  {x:0,y:0,w:1080,h:80,k:'chrome',role:'top-bar bg',z:10,label:'TopBar 底',sub:'1080×80 #0B204A α0.3'},
+  {x:0,y:80,w:1080,h:108,k:'chrome',role:'history bar',asset:'history_container_*',z:10,label:'近20局历史倍率条 ◀ ▶',sub:'1080×108 #32574B α0.6;条目146×64(灰<2x/绿2-10x/红≥10x)'},
+  {x:975,y:69,w:84,h:84,k:'chrome',role:'settings gear',asset:'btn_setting_gameview',z:11,anchor:'~center@1017,111',label:'设置齿轮 84',sub:'GameView 右上 → 开设置'},
+];
+const PRIZEPOOL={x:0,y:1005,w:1080,h:70,k:'chrome',role:'prize pool bar',z:9,label:'N Players(左) · $奖池(右)',sub:'1080×70 #32574B α0.6;fs38'};
+// MyBetPanel: BetTabBar(A/B) 顶 + 双列控件 + BalanceBar 底（全宽）
+function myBetPanel(state){ // state: 'bet' | 'cashout'
+  const L=[
+    {x:0,y:1075,w:540,h:88,k:'chrome',role:'bet tab A',z:8,label:'A 注',sub:'540×88 字#6B8B34 fs50'},
+    {x:540,y:1075,w:540,h:88,k:'chrome',role:'bet tab B',z:8,label:'B 注',sub:'540×88 字#D5E9B2 fs50'},
+  ];
+  // 两列 A(x0-540)/B(x540-1080) 各一组：BetSwitcher / QuickBet / AutoCashout / PlayButton
+  [0,540].forEach((cx,ci)=>{const tag=ci?'B':'A';
+    L.push({x:cx+82,y:1185,w:376,h:92,k:'chrome',role:'bet switcher '+tag,asset:'bet_switcher_bg',z:7,label:'– $金额 + ('+tag+')',sub:'376×92;减/加 107×107 两端;数字#5C5C5B'});
+    [25,190,355].forEach((qx,qi)=>L.push({x:cx+qx,y:1290,w:160,h:94,k:'chrome',role:'quickbet '+tag,asset:'btn_quickbet',z:7,label:['$1','$5','$15'][qi],sub:'160×94 fs46'}));
+    L.push({x:cx+37,y:1400,w:467,h:139,k:'chrome',role:'auto-cashout '+tag,asset:'auto-cashout_container',z:7,label:'Auto Cashout '+(ci?'':'(图标+标)'),sub:'467×139;输入205×64 + 开关182×74'});
+    // PlayButton: bet 单键 417×120 / cashout 双键 229+229(gap20)
+    if(state==='bet'){
+      L.push({x:cx+62,y:1560,w:417,h:120,k:'feat',role:'PlayButton '+tag,asset:ci?'btn_wait':'btn_bet',z:7,origin:'generate',label:ci?'WAIT '+tag+'(灰)':'BET A(绿描边)',sub:'417×120;EN66/CN54'});
+    }else{
+      L.push({x:cx+30,y:1560,w:229,h:120,k:'feat',role:'50% cashout '+tag,asset:'btn_50-cashout',z:7,origin:'generate',label:'50% (橙#D8755B)',sub:'229×120'});
+      L.push({x:cx+279,y:1560,w:229,h:120,k:'feat',role:'FULL cashout '+tag,asset:'btn_cashout',z:7,origin:'generate',label:'CASHOUT(金#C49029)',sub:'229×120 gap20'});
+    }
+  });
+  // BalanceBar 全宽底
+  L.push({x:70,y:1700,w:940,h:80,k:'chrome',role:'balance bar',asset:'balance_container',z:7,label:'Balance(左半) · Total Bet(右半)',sub:'940×80;值#789743 fs44'});
+  return L;
+}
+function hudTabBar(active){ // 'mybet' | 'allplayers'
+  return [
+    {x:0,y:1820,w:540,h:100,k:active==='mybet'?'feat':'chrome',role:'tab my-info',asset:active==='mybet'?'tab_on':'tab_off',z:10,label:'My Info'+(active==='mybet'?' ◀':''),sub:'540×100'},
+    {x:540,y:1820,w:540,h:100,k:active==='allplayers'?'feat':'chrome',role:'tab all-players',asset:active==='allplayers'?'tab_on':'tab_off',z:10,label:'All Players'+(active==='allplayers'?' ◀':''),sub:'540×100'},
+  ];
+}
+// 飞行态游戏区元素（榴莲 spine + 倍率 + 装饰），lv 决定 bg/skin/装饰/色
+function flyLayers(lv){
+  const bgc={1:'bg1(粉彩天)',2:'bg2(高空)',3:'bg3(深蓝夜)'}[lv];
+  const deco={1:'气球×3',2:'热气球×2',3:'UFO×2'}[lv];
+  const dc={1:'蓝',2:'绿',3:'金'}[lv];
+  const L=[
+    {x:0,y:0,w:1080,h:1075,k:'bg',role:'scrolling bg lv'+lv,asset:'bg'+lv,z:1,label:bgc+' (竖直滚动)',sub:'TilingSprite 1080×2160 →见画廊B'},
+    {x:0,y:120,w:1080,h:900,k:'fx',role:'flying decorations',z:2,label:'氛围装饰: '+deco,sub:'从顶落到底(Math.random)'},
+    {x:430,y:480,w:220,h:280,k:'hero',role:'durian spine lv'+lv,asset:'cg02A_scene2and3(skin lv'+lv+')',z:5,anchor:'~center@540,612 固定',label:'榴莲 spine (皮肤 lv'+lv+')',sub:'scale0.2×1.794;Y固定'},
+    {x:430,y:760,w:220,h:90,k:'fx',role:'durian fx',z:6,label:'烟/液体/情绪/speedline',sub:'挂骨;lv专属情绪'},
+    {x:360,y:340,w:360,h:95,k:'feat',role:'multiplier',asset:'digits_'+({1:'normal',2:'profit',3:'super'}[lv]),z:8,anchor:'center@540,388',label:'倍率 '+({1:'1.45x',2:'4.20x',3:'25.0x'}[lv])+' ('+dc+')',sub:'SpriteDigits ≈0.994;≥6x ×1.10'},
+  ];
+  return L;
+}
+
+const SCREENS=[
+ {id:'loading',cap:'Loading — loading 态',meta:'DOM 覆盖 inset:0 z9999;bg_normal 背景 + 按语言 logo + 进度条',layers:[
+   {x:0,y:0,w:1080,h:1920,k:'bg',role:'bg',asset:'bg_normal.webp',z:1,label:'加载背景',sub:'1080×1927 cover'},
+   {x:36,y:130,w:1008,h:428,k:'hero',role:'logo',asset:'logo_<loc>.webp',z:5,anchor:'top@130',label:'logo(en/zh_hans/zh_hant)',sub:'~1009×428'},
+   {x:83,y:1526,w:914,h:134,k:'feat',role:'progress container',asset:'loading_frame',z:6,anchor:'center-x',label:'进度条容器',sub:'914×134'},
+   {x:98,y:1565,w:884,h:77,k:'feat',role:'progress fill',asset:'loading_fill',z:7,label:'填充(左→右)+右端光晕',sub:'884×77'},
+   {x:480,y:1430,w:120,h:60,k:'chrome',role:'progress %',z:8,anchor:'center@540',label:'NN%',sub:'48px bold 渐变字'},
+   {x:340,y:1450,w:400,h:40,k:'chrome',role:'loading text',z:8,label:'Loading… / 正在进入房间…',sub:'72px letterSpacing8 渐变#F6F0C2→#FFCA58'},
+ ]},
+ {id:'ready',cap:'Loading — ready 态',meta:'进度满→START 出现;点击进房(解锁音频)',layers:[
+   {x:0,y:0,w:1080,h:1920,k:'bg',role:'bg',asset:'bg_normal.webp',z:1,label:'加载背景',sub:''},
+   {x:36,y:130,w:1008,h:428,k:'hero',role:'logo',z:5,anchor:'top@130',label:'logo',sub:''},
+   {x:99,y:1506,w:882,h:225,k:'feat',role:'start button',asset:'btn_start.png',z:7,anchor:'center@540',label:'START (95px 渐变字)',sub:'882×225;无 hover/click 变体(死件)'},
+ ]},
+ {id:'exception',cap:'异常 / 维护屏',meta:'DOM;title/desc 按 exceptionState 取 i18n;rgba(35,126,78,.8)+#D3E176 框',layers:[
+   {x:0,y:0,w:1080,h:1920,k:'bg',role:'bg',asset:'bg_normal.webp',z:1,label:'背景',sub:''},
+   {x:1014,y:32,w:66,h:66,k:'chrome',role:'exit',z:9,label:'退出(右上)',sub:'top32 right32'},
+   {x:60,y:1318,w:960,h:284,k:'overlay',role:'exception panel',z:8,anchor:'center-x bottom122',label:'异常面板(标题+说明)',sub:'960×~;标46(大80) 说明30(大40);pad40×60 r28'},
+ ]},
+ {id:'modal',cap:'ConfirmModal (reload)',meta:'居中错误面板(vw 缩放);popupShow 0.4s cubic-bezier',layers:[
+   {x:0,y:0,w:1080,h:1920,k:'overlay',role:'dim',z:20,label:'遮罩',sub:''},
+   {x:288,y:790,w:504,h:338,k:'chrome',role:'panel',z:21,anchor:'center@540,960',label:'确认面板',sub:'≈895/1920·100vw × 600/1920·100vw'},
+   {x:432,y:1020,w:216,h:65,k:'feat',role:'confirm',asset:'button_popup_confirm',z:22,label:'确认(342×98)',sub:'hover1.15/active0.9'},
+ ]},
+
+ {id:'mg-betting',cap:'主玩法 — 下注态 (My Info)',meta:'BETTING：待机榴莲 spine + 倒计时进度条(榴莲游标随填充右移);底部双注栏 A/B(加减注·快捷$1/5/15·自动套现·BET/WAIT·余额)',layers:[
+   {x:0,y:0,w:1080,h:1075,k:'bg',role:'betting bg',asset:'game_s1_bg',z:1,label:'下注态背景',sub:'1080×1123 @y-40'},
+   {x:420,y:440,w:240,h:300,k:'hero',role:'idle durian spine',asset:'cg02A_scene1',z:5,anchor:'center@540,612',label:'待机榴莲 spine(scale0.6)',sub:'idle3→idle2→loop;末尾 jump'},
+   {x:276,y:374,w:528,h:111,k:'feat',role:'next-game img',asset:'bet-phase:next-game',z:6,anchor:'center-x',label:'NEXT GAME 提示',sub:'528×111'},
+   {x:236,y:520,w:608,h:39,k:'feat',role:'countdown bar',asset:'progress_container+fill',z:6,label:'倒计时进度槽(填充591×27)',sub:'608×39 @SLIDER_X236'},
+   {x:245,y:510,w:63,h:59,k:'data',role:'durian icon',asset:'progress_durian',z:7,anchor:'center',label:'榴莲游标(随填充右移)',sub:'63×59'},
+   ...TOPBAR,PRIZEPOOL,
+   {x:0,y:1075,w:1080,h:845,k:'bg',role:'mybet bg',asset:'playerhud_bg',z:6,label:'我的下注面板底',sub:'1080×845'},
+   ...myBetPanel('bet'),...hudTabBar('mybet'),
+ ]},
+ {id:'mg-fly1',cap:'主玩法 — 飞行 lv1 (<2x)',meta:'RUNNING lv1：bg1 粉彩天滚动 + 榴莲皮肤lv1 + 气球氛围 + 蓝倍率;HUD 转 cashout(50%+CASHOUT 双键)',layers:[
+   ...flyLayers(1),...TOPBAR,PRIZEPOOL,
+   {x:0,y:1075,w:1080,h:845,k:'bg',role:'mybet bg',asset:'playerhud_bg',z:6,label:'下注面板底',sub:''},
+   ...myBetPanel('cashout'),...hudTabBar('mybet'),
+ ]},
+ {id:'mg-fly2',cap:'主玩法 — 飞行 lv2 (2–10x)',meta:'RUNNING lv2：bg2 + 皮肤lv2 + 热气球 + 绿倍率;升级瞬间 explode+spark+抛切片+level_up_2 音',layers:[
+   ...flyLayers(2),
+   {x:430,y:430,w:220,h:120,k:'fx',role:'level-up burst',asset:'explode2+spark1',z:7,label:'升级爆裂(lv1→2)',sub:'explode 5×2 + spark 4×2'},
+   ...TOPBAR,PRIZEPOOL,
+   {x:0,y:1075,w:1080,h:845,k:'bg',role:'mybet bg',z:6,label:'下注面板底',sub:''},
+   ...myBetPanel('cashout'),...hudTabBar('mybet'),
+ ]},
+ {id:'mg-fly3',cap:'主玩法 — 飞行 lv3 (≥10x)',meta:'RUNNING lv3：bg3 深蓝夜 + 皮肤lv3 + UFO 氛围 + 金倍率;spin_lv3 循环音',layers:[
+   ...flyLayers(3),...TOPBAR,PRIZEPOOL,
+   {x:0,y:1075,w:1080,h:845,k:'bg',role:'mybet bg',z:6,label:'下注面板底',sub:''},
+   ...myBetPanel('cashout'),...hudTabBar('mybet'),
+ ]},
+ {id:'mg-crash',cap:'撞毁 overlay (UFO 拦截)',meta:'crash 序列 2000ms：UFO 飞掠 + 光柱(色随lv) + roundlight×4 + 榴莲切开 + CRASHED 横幅;digits_crashed',layers:[
+   ...flyLayers(3).slice(0,3),
+   {x:360,y:300,w:360,h:180,k:'fx',role:'UFO flyby',asset:'ufo(5×3)+light+roundlight',z:9,label:'UFO 拦截 + 光柱 + 圆光×4',sub:'光柱色 lv1橙/lv2青/lv3品红'},
+   {x:430,y:560,w:220,h:180,k:'fx',role:'durian sliced',asset:'durian_slice/half',z:8,label:'榴莲被切开',sub:'spine end 4.167s'},
+   {x:360,y:340,w:360,h:95,k:'feat',role:'CRASHED banner',asset:'text_crashed',z:10,anchor:'center@540,508',label:'CRASHED (slam+抖)',sub:'545×100;MULT_Y+120'},
+   ...TOPBAR,PRIZEPOOL,
+   {x:0,y:1075,w:1080,h:845,k:'bg',role:'mybet bg',z:6,label:'下注面板底',sub:''},
+   ...hudTabBar('mybet'),
+ ]},
+ {id:'mg-win',cap:'结算 — 套现成功 (RESULT)',meta:'套现成功显示派彩盈利(SpriteDigits win 样式)落下+抖;含 youwin/frame/coin/winparticle/highlight 庆祝;亏损不显示(A1关闭)',layers:[
+   {x:0,y:0,w:1080,h:1075,k:'bg',role:'bg',z:1,label:'游戏区背景',sub:''},
+   {x:420,y:440,w:240,h:300,k:'hero',role:'durian',z:5,anchor:'center',label:'榴莲',sub:''},
+   {x:300,y:300,w:480,h:200,k:'fx',role:'win celebrate',asset:'youwin+frame+coin+winparticle+highlight',z:9,label:'YOU WIN 糖果字 + 金币 + 高光',sub:'ENDGAME_BUNDLE'},
+   {x:360,y:640,w:360,h:163,k:'feat',role:'profit digits',asset:'digits_win',z:10,anchor:'center@540,~703',label:'派彩金额(win 色)',sub:'落450ms easeOutBack + 抖250ms'},
+   ...TOPBAR,PRIZEPOOL,
+   {x:0,y:1075,w:1080,h:845,k:'bg',role:'mybet bg',z:6,label:'下注面板底',sub:''},
+   ...myBetPanel('bet'),...hudTabBar('mybet'),
+ ]},
+ {id:'mg-allplayers',cap:'多人排行榜 (All Players tab)',meta:'HUD tab 切 All Players：top50 按 total win 降序;每卡 用户名+A/B槽(Half%/Bet/Win);100ms 增量刷新;卡 940×208 stride224 → 内容超屏滚动(见画廊B注)',layers:[
+   {x:0,y:0,w:1080,h:1075,k:'bg',role:'game area',z:1,label:'游戏区(续演)',sub:''},
+   ...TOPBAR,PRIZEPOOL,
+   {x:0,y:1075,w:1080,h:845,k:'bg',role:'list bg',asset:'playerhud_list_bg',z:6,label:'排行榜面板底',sub:'1080×845'},
+   {x:42,y:1087,w:996,h:76,k:'chrome',role:'header',z:8,label:'User · Half% · Bet · Win',sub:'列头 fs40;User@68/Half@~410/Bet@632/Win@900'},
+   ...[0,1,2].map(i=>({x:70,y:1175+i*112,w:940,h:104,k:'data',role:'player card '+i,asset:'player_cards',z:7,label:'玩家'+(i+1)+': 名 + A/B 槽 Win(金渐变)',sub:'940×208(此处压缩);stride224'})),
+   {x:504,y:1790,w:72,h:42,k:'feat',role:'scroll hint',asset:'icon-triangle',z:9,anchor:'center-x',label:'滚动提示三角 ▼',sub:'弹跳 amp8/cycle3000ms'},
+   ...hudTabBar('allplayers'),
+ ]},
+
+ {id:'set-setting',cap:'设置 — Setting tab',meta:'全屏 z999 setting_background;标题区(144h)+音量(SFX/BGM 各 静音icon+3档段条)+语言下拉(560×100)+画质(3键151×60);底栏 5 项',layers:[
+   {x:0,y:0,w:1080,h:1920,k:'bg',role:'panel bg',asset:'setting_background',z:1,label:'设置面板底',sub:'1080×1920'},
+   {x:0,y:0,w:1080,h:144,k:'chrome',role:'page title',z:5,anchor:'center@540,72',label:'Setting 标题(70px #F0FFCB)',sub:'TITLE_H144'},
+   {x:50,y:300,w:980,h:130,k:'chrome',role:'sfx row',z:6,label:'SFX + 静音icon + 3档段条([.15,.5,1])',sub:'段160×50 gap12 on#5D8219'},
+   {x:50,y:480,w:980,h:130,k:'chrome',role:'bgm row',z:6,label:'BGM + 静音 + 3档',sub:''},
+   {x:50,y:700,w:980,h:130,k:'chrome',role:'language',z:6,label:'Language 下拉 English + 切换开关80',sub:'dropdown 560×100'},
+   {x:50,y:900,w:980,h:200,k:'chrome',role:'graphics quality',z:6,label:'Quality ☐Low ☐Med ☑High',sub:'3键 151×60 gap12(QualityManager)'},
+   {x:0,y:1500,w:1080,h:48,k:'chrome',role:'version',z:6,anchor:'center-x',label:'version 文本',sub:'24px α0.8 @y1548'},
+   ...settingBottomMenu('setting'),
+ ]},
+ {id:'set-guide',cap:'设置 — Guide tab',meta:'How to Play 卡片流(7 卡;1-3 tilted-olive 橄榄绿斜卡,4-7 classic);含 BetSwitcher/倍率序列/AutoCashout 真组件预览(0.5 scale);超屏滚动',layers:[
+   {x:0,y:0,w:1080,h:1920,k:'bg',role:'panel bg',asset:'setting_background',z:1,label:'设置面板底',sub:''},
+   {x:0,y:0,w:1080,h:144,k:'chrome',role:'page title',z:5,label:'Guide / How to Play(70px)',sub:''},
+   {x:40,y:200,w:1000,h:360,k:'feat',role:'guide card1',z:6,label:'① Bet (tilted-olive 斜卡 + BetSwitcher 预览)',sub:'1000w;橄榄渐变789022→C6C454 斜-4.18°'},
+   {x:40,y:600,w:1000,h:350,k:'feat',role:'guide card2',z:6,label:'② 倍率序列 1.0x→2.0x→5.0x→10x(SpriteDigits+箭头)',sub:'digit scale0.35'},
+   {x:40,y:990,w:1000,h:390,k:'chrome',role:'guide card3',z:6,label:'③ Cashout (btn_cashout 底图 + 文字覆盖)',sub:'tilted-olive'},
+   {x:40,y:1420,w:1000,h:400,k:'chrome',role:'guide card4-7',z:6,label:'④–⑦ MyBetPanel/AutoCashout 预览 + Outcome 成功/失败卡',sub:'classic;(滚动续)'},
+   ...settingBottomMenu('guide'),
+ ]},
+ {id:'set-history',cap:'设置 — History tab',meta:'3列统计(338.67w each)+筛选(Today/3Days/Week 314×100)+虚拟滚动注单(990×120;状态@Xx/Bill No+copy/Win/时间/Bet)',layers:[
+   {x:0,y:0,w:1080,h:1920,k:'bg',role:'panel bg',asset:'setting_background',z:1,label:'设置面板底',sub:''},
+   {x:0,y:0,w:1080,h:144,k:'chrome',role:'page title',z:5,label:'History(70px)',sub:''},
+   ...[0,1,2].map(i=>({x:32+i*339,y:180,w:330,h:170,k:'chrome',role:'stat',z:6,label:['Bet Count','Total Bet','Total Payout'][i],sub:'label35h+value141h fs56'})),
+   ...[0,1,2].map(i=>({x:60+i*351,y:380,w:314,h:100,k:'chrome',role:'filter',z:6,label:['Today','Recent 3 Days','Recent Week'][i],sub:'314×100 gap37 fs44(en38)'})),
+   {x:32,y:520,w:1016,h:600,k:'data',role:'bet list',z:6,label:'注单行: 状态@Xx · Bill No+copy · Win · 时间 · Bet Amount',sub:'行990×120 gap12 虚拟滚动(底加载更多)'},
+   ...settingBottomMenu('history'),
+ ]},
+
+ {id:'pop-lang',cap:'弹窗 — 语言选择',meta:'模态 dim0.5;800×960 居中;选项 550×115 gap80;pop back.out(2)',layers:[
+   {x:0,y:0,w:1080,h:1920,k:'overlay',role:'dim',z:50,label:'遮罩 0.5',sub:''},
+   {x:140,y:480,w:800,h:960,k:'chrome',role:'panel',asset:'select_language_bg',z:51,anchor:'center@540,960',label:'语言面板',sub:'800×960;标题77h fs64 #6E9143'},
+   ...[0,1,2,3].map(i=>({x:265,y:680+i*195,w:550,h:115,k:'chrome',role:'lang opt',z:52,label:['English','简体中文','繁體中文','…'][i],sub:'550×115 bg#BFCA9B'})),
+ ]},
+ {id:'pop-toast',cap:'弹窗 — Toast',meta:'非模态;882×179;中心下移 Y_OFFSET760;3s 自动关',layers:[
+   {x:99,y:1630,w:882,h:179,k:'chrome',role:'toast',z:50,anchor:'center@540,~1720',label:'Toast 48px',sub:'882×179 #101E35 α0.8;对角描边#65F4FA→#FEF988'},
+ ]},
+ {id:'pop-warning',cap:'弹窗 — Warning(断线确认)',meta:'模态 dim0.5;960×560 浅绿渐变面板+#FAE92A 框;标题80+正文48+绿 Confirm 体素键(340×92)',layers:[
+   {x:0,y:0,w:1080,h:1920,k:'overlay',role:'dim',z:50,label:'遮罩 0.5',sub:''},
+   {x:60,y:680,w:960,h:560,k:'chrome',role:'panel',z:51,anchor:'center@540,960',label:'Warning 面板(浅绿渐变+黄框)',sub:'960×560 r24'},
+   {x:140,y:782,w:680,h:90,k:'chrome',role:'title',z:52,anchor:'center@540,~803',label:'标题 80px #6E9143',sub:'@0.22H'},
+   {x:140,y:920,w:680,h:120,k:'chrome',role:'content',z:52,anchor:'center@540,~960',label:'正文 48px(可换行)',sub:'@0.50H'},
+   {x:370,y:1063,w:340,h:92,k:'feat',role:'confirm',z:52,anchor:'center@540,~1109',label:'Confirm(绿渐变 56px 白)',sub:'340×92 @0.82H;hover1.1/press0.9'},
+ ]},
+];
+function settingBottomMenu(active){
+  const items=[['back','Back'],['setting','Setting'],['guide','Guide'],['history','History'],['exit','Exit']]; // i18n
+  const o=[{x:0,y:1740,w:1080,h:180,k:'chrome',role:'bottom menu',z:10,label:'底栏 5 项(绿底#87A921)',sub:'1080×180 @y1740'}];
+  items.forEach((it,i)=>o.push({x:i*216,y:1740,w:216,h:180,k:it[0]===active?'feat':'chrome',role:'menu '+it[0],z:11,label:it[1]+(it[0]===active?' ◀':''),sub:it[0]==='back'?'图标140':'图标72+标34;选中底216×168'}));
+  return o;
+}
+
+/* ===== 渲染 ===== */
+function aTitle(b){let s=b.role||'';if(b.asset)s+=' · '+b.asset;if(b.anchor)s+=' · '+b.anchor;if(b.z!=null)s+=' · z'+b.z;if(b.origin)s+=' · '+b.origin;s+=' · '+(b.label||'').replace(/\n/g,' ');if(b.sub)s+=' · '+b.sub;return s;}
+function mkBox(b,s){const d=document.createElement('div');d.className='box '+b.k;
+  d.style.left=(b.x*s)+'px';d.style.top=(b.y*s)+'px';d.style.width=(b.w*s)+'px';d.style.height=(b.h*s)+'px';d.style.zIndex=b.z||1;
+  d.title=aTitle(b);d.dataset.role=b.role||'';if(b.asset)d.dataset.asset=b.asset;d.dataset.box=[b.x,b.y,b.w,b.h].join(',');if(b.anchor)d.dataset.anchor=b.anchor;
+  const l=document.createElement('div');l.className='bl';l.textContent=(b.label||'').replace(/\n/g,' ');d.appendChild(l);
+  if(b.sub){const x=document.createElement('div');x.className='bd dims';x.textContent=b.sub;d.appendChild(x);}return d;}
+const ZONES=[{y:0,h:80,t:'TopBar 0–80'},{y:80,h:108,t:'History 80–188'},{y:188,h:887,t:'GameView 188–1075'},{y:1005,h:915,t:'PlayerHUD 1005–1920 (重叠70)'}];
+function mkZones(s){const f=document.createDocumentFragment();ZONES.forEach(z=>{const d=document.createElement('div');d.className='box zone';d.style.left='0';d.style.top=(z.y*s)+'px';d.style.width=(1080*s)+'px';d.style.height=(z.h*s)+'px';d.style.zIndex=200;const l=document.createElement('div');l.className='zonelabel';l.textContent=z.t;d.appendChild(l);f.appendChild(d);});return f;}
+function renderScreens(){const W=300,s=W/1080,H=1920*s,root=document.getElementById('galleryA');
+  SCREENS.forEach(sc=>{const c=document.createElement('div');c.className='frame';
+    const _b=sc.badge||'derived';
+    c.innerHTML=`<div class="cap">${sc.cap}<span class="badge ${_b}">${_b==='validated'?'validated':'code-derived'}</span></div><div class="meta">${sc.meta}</div>`;
+    const st=document.createElement('div');st.className='stage';st.style.width=W+'px';st.style.height=H+'px';
+    sc.layers.forEach(b=>st.appendChild(mkBox(b,s)));
+    const zw=document.createElement('div');zw.className='zones';zw.appendChild(mkZones(s));
+    if(sc.id.startsWith('mg-')||sc.id==='loading'||sc.id==='ready')st.appendChild(zw);
+    c.appendChild(st);root.appendChild(c);});}
+
+/* ===== 画廊 B: 竖向滚动 bg 长卷 ===== */
+const TILE_W=1080, TILE_H=2160, VIEW_GAME_H=1075;
+function renderScenes(){
+  const root=document.getElementById('galleryB');
+  const tiles=[['bg1','lv1 粉彩天(< 2x)','#23303f'],['bg2','lv2 高空(2–10x)','#26402c'],['bg3','lv3 深蓝夜(≥ 10x)','#163040']];
+  tiles.forEach(([id,lab,col])=>{
+    const DH=300, s=DH/TILE_H, DW=TILE_W*s;
+    const c=document.createElement('div');c.className='frame';
+    c.innerHTML=`<div class="cap">${id} — ${lab}<span class="badge derived">code-derived</span></div><div class="meta">${id}.png ${TILE_W}×${TILE_H} TilingSprite，竖直滚动 tilePosition.y += 2px/帧(恒速·无视差)。可视游戏区 ~${VIEW_GAME_H}h &lt; 图高 → 长卷。</div>`;
+    const st=document.createElement('div');st.className='stage';st.style.width=DW+'px';st.style.height=DH+'px';
+    const t=document.createElement('div');t.className='box bg';t.style.cssText=`left:0;top:0;width:${DW}px;height:${DH}px;background:${col};z-index:1`;
+    t.innerHTML=`<div class="bl">${id} 1080×2160</div><div class="bd dims">竖直滚动图块</div>`;t.title=`${id}.png 1080×2160 TilingSprite`;st.appendChild(t);
+    // visible game viewport window (1080×1075) at top
+    const vp=document.createElement('div');vp.className='box';vp.style.cssText=`left:0;top:0;width:${DW}px;height:${VIEW_GAME_H*s}px;border:2px solid #4a90e2;background:rgba(74,144,226,.06);z-index:4`;
+    vp.innerHTML='<div class="bl" style="color:#9cc4f2">1080×~1075 可视游戏区</div>';vp.title='玩家可见游戏区(图比它高,向上滚穿过)';st.appendChild(vp);
+    // durian fixed marker
+    const du=document.createElement('div');du.className='box hero';du.style.cssText=`left:${(430)*s}px;top:${(480)*s}px;width:${220*s}px;height:${280*s}px;z-index:6`;
+    du.innerHTML='<div class="bl">榴莲(固定)</div>';du.title='durian spine Y 固定(540,612);bg 在其后滚动';st.appendChild(du);
+    // scroll arrow up
+    const ar=document.createElement('div');ar.style.cssText='position:absolute;left:50%;bottom:6px;transform:translateX(-50%);z-index:7;color:#8fd0a0;font-size:20px';ar.textContent='↑';ar.title='背景向上滚动(榴莲不动)';st.appendChild(ar);
+    c.appendChild(st);root.appendChild(c);
+  });
+  // note card
+  const n=document.createElement('div');n.className='frame';n.style.maxWidth='320px';
+  n.innerHTML='<div class="cap">飞行"升空"如何造成</div><div class="meta">榴莲 Y 固定 + bg 竖滚 + 氛围装饰下落 + 3 段换皮(lv1/2/3)共同营造升空错觉。<b>无相机、无视差、无真实升空</b>(cameraShaking 死代码)。倍率连续值由服务端 tick 推送(见 GDD §2)。<br><br>另：排行榜内容 = top50 卡 × stride224 ≈ 11200px，也是超屏纵向滚动(VirtualScrollContainer)。</div>';
+  root.appendChild(n);
+}
+renderScreens();renderScenes();
+document.getElementById('showZones').addEventListener('change',e=>document.querySelectorAll('.zones').forEach(z=>z.style.display=e.target.checked?'':'none'));
+document.getElementById('showDims').addEventListener('change',e=>document.querySelectorAll('.dims').forEach(z=>z.style.display=e.target.checked?'':'none'));
+</script>
+</body>
+</html>

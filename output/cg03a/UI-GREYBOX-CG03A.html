@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>cg03a「Jeepney Glide」UI 灰盒稿 (逆向·分层版)</title>
+<!--
+  界面设计灰盒稿 — 三件套之一（配套 ART-AUDIO-CG03A.md / GDD-CG03A.md）。
+  ★ 分层结构（贴合原生代码）：MainScene 把 ContentView(游戏内容,相位驱动) 与 PlayerHUD(钱包驱动) 作为
+    独立组件、订阅互不相交的信号域、最后按层序拼合。本灰盒据此把两层拆成独立画廊各自描述其状态机，
+    再用「典型合成屏」给人预览/截图比对，并以「合成契约」说明如何拼回整屏。
+  数据驱动：下方各 cards 数组是结构化真值（每 box 带 data-* 全量元数据），agent 直接读 JS。
+  坐标全部为 1080×1920 画布的绝对 px（源码实测 + Figma 设计稿）。纯灰盒：只定位置/尺寸/层级/状态。
+  来源：crashgame-cg03a-ui/cg03a/src 穷尽抽取 + 5 张真机截图 + .art-meta/nodes.json(Figma)。
+-->
+<style>
+:root{
+  --bg:#0c1018; --card:#141a24; --bd:#283242; --fg:#cdd6e2; --mut:#7d8aa0; --acc:#6db3f2;
+  --k-bg:#23303f; --k-chrome:#2c3340; --k-feat:#3a3320; --k-hero:#3c3414; --k-fx:#2e2440; --k-data:#163040; --k-overlay:#3a1f2e;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.5 -apple-system,"PingFang SC","Segoe UI",sans-serif}
+header{padding:18px 24px;border-bottom:1px solid var(--bd);position:sticky;top:0;background:var(--bg);z-index:1000}
+h1{margin:0 0 4px;font-size:20px}
+.sub{color:var(--mut);font-size:12px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:11px;color:var(--mut)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.swatch{width:12px;height:12px;border-radius:2px;border:1px solid var(--bd);display:inline-block}
+.controls{margin-top:10px;font-size:12px}
+.controls label{margin-right:16px;cursor:pointer;color:var(--fg)}
+main{padding:22px}
+h2.gallery{font-size:16px;margin:30px 0 6px;border-left:3px solid var(--acc);padding-left:10px}
+.gallery-note{color:var(--mut);font-size:12px;margin:0 0 16px;max-width:1040px}
+.grid{display:flex;flex-wrap:wrap;gap:26px;align-items:flex-start}
+.frame{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:10px}
+.frame .cap{font-size:12px;font-weight:600;margin-bottom:2px}
+.frame .meta{font-size:11px;color:var(--mut);margin-bottom:8px;max-width:300px}
+.frame .badge{display:inline-block;font-size:10px;padding:1px 6px;border-radius:3px;margin-left:6px;vertical-align:middle}
+.badge.validated{background:#14361f;color:#67d98a}
+.badge.derived{background:#3a2a12;color:#e0a44a}.badge.figma{background:#16273f;color:#6db3f2}
+.stage{position:relative;background:#070a0f;border:1px solid #1c2430;overflow:hidden;isolation:isolate}
+.box{position:absolute;border:1px solid rgba(255,255,255,.28);overflow:hidden;display:flex;flex-direction:column;justify-content:flex-start}
+.box .bl{font-size:9px;line-height:1.15;padding:2px 3px;color:#e7edf5;text-shadow:0 1px 2px #000;font-weight:600}
+.box .bd{font-size:8px;line-height:1.1;padding:0 3px;color:#aebccf}
+.box.bg{background:var(--k-bg)} .box.chrome{background:var(--k-chrome)} .box.feat{background:var(--k-feat)}
+.box.hero{background:var(--k-hero)} .box.fx{background:var(--k-fx);border-style:dashed}
+.box.data{background:var(--k-data);border-style:dashed} .box.overlay{background:var(--k-overlay);border-style:dashed}
+.box.zone{background:transparent;border:1px dashed #3a4658}
+.box.ghost{background:repeating-linear-gradient(135deg,#0e1622,#0e1622 6px,#0b121c 6px,#0b121c 12px);border:1px dashed #2c3a4e;opacity:.65}
+.box.ghost .bl{color:#5f7088;font-weight:500}
+.zonelabel{position:absolute;font-size:9px;color:#8696ad;padding:1px 4px;background:rgba(7,10,15,.6);border-radius:2px;right:3px;top:50%;transform:translateY(-50%);text-align:right;white-space:nowrap}
+details{margin:14px 0;border:1px solid var(--bd);border-radius:6px;background:var(--card)}
+summary{cursor:pointer;padding:10px 14px;font-weight:600;font-size:14px}
+details .body{padding:0 16px 14px;font-size:12.5px;color:#c2ccdb}
+details table{border-collapse:collapse;width:100%;margin:8px 0;font-size:12px}
+details th,details td{border:1px solid var(--bd);padding:5px 8px;text-align:left;vertical-align:top}
+details th{background:#1a2130;color:var(--fg)}
+code{background:#0a0e15;padding:1px 4px;border-radius:3px;color:#8fd0a0;font-size:11.5px}
+.hl{color:#e0a44a}
+svg{position:absolute;left:0;top:0;pointer-events:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>cg03a「Jeepney Glide」— UI 灰盒稿（逆向·<span style="color:var(--acc)">分层版</span>）</h1>
+  <div class="sub">菲律宾吉普尼 crash · 画布 1080×1920 竖屏 · 坐标=绝对 px（源码 + Figma）· 三件套：<b>ADD</b>/<b>GDD</b>/<b>本 HTML</b></div>
+  <div class="sub" style="margin-top:4px">★ <b>按原生代码分层呈现</b>：<code>ContentView</code>(游戏内容·相位驱动 NET_ROUND_*) 与 <code>PlayerHUD</code>(钱包驱动 WALLET_*) 是 MainScene 里两个独立组件、信号域不相交、最后拼合。下面把两层各自成画廊（各一套状态机），再给「典型合成屏」与「合成契约」。设计稿与 runtime 偶有差异，以 runtime/截图为准（如快捷投注 Figma 4 键、runtime 5 键）。</div>
+  <div class="legend">
+    <span><i class="swatch" style="background:var(--k-bg)"></i>bg/scene</span>
+    <span><i class="swatch" style="background:var(--k-chrome)"></i>chrome</span>
+    <span><i class="swatch" style="background:var(--k-feat)"></i>featured</span>
+    <span><i class="swatch" style="background:var(--k-hero)"></i>hero</span>
+    <span><i class="swatch" style="background:var(--k-fx);border-style:dashed"></i>fx/overlay</span>
+    <span><i class="swatch" style="background:var(--k-data);border-style:dashed"></i>data</span>
+    <span><i class="swatch" style="background:#0e1622;border-style:dashed"></i>ghost(他层占位)</span>
+    <span><span class="badge validated">validated</span>截图核</span>
+    <span><span class="badge figma">figma</span>设计稿</span>
+    <span><span class="badge derived">code-derived</span>代码推定</span>
+  </div>
+  <div class="controls">
+    <label><input type="checkbox" id="showZones" checked> 显示分区线</label>
+    <label><input type="checkbox" id="showDims" checked> 显示尺寸/资产标注</label>
+  </div>
+</header>
+<main>
+
+  <details open>
+    <summary>① 合成契约（Composition Contract）—— 两层如何拼回整屏（agent 先读这个）</summary>
+    <div class="body">
+      <p><b>MainScene 层序（addChild 顺序 = z 从低到高）</b>：</p>
+      <table>
+        <tr><th>层</th><th>组件 / 文件</th><th>分区 (y)</th><th>驱动信号域</th><th>状态机</th><th>画廊</th></tr>
+        <tr><td>L0 背景</td><td>MainBackground</td><td>0–1920 全屏</td><td>—(静态)</td><td>—</td><td>(各帧底)</td></tr>
+        <tr><td>L1 游戏内容</td><td>ContentView = TopBar + GameView</td><td>TopBar 0–131 / GameView 131–1100</td><td><b>NET_ROUND_*</b>(回合相位)</td><td>betting→fly→crash/win/ultimate/boarding</td><td><b>②</b></td></tr>
+        <tr><td>L2 玩家 HUD</td><td>PlayerHUD(独立 hudSignals 总线)</td><td>1100–1920</td><td><b>WALLET_*</b>(钱包/下注)</td><td>PlayState bet↔cashout + 难度器开合</td><td><b>③</b></td></tr>
+        <tr><td>L3 覆盖层</td><td>SettingPanel + PopupManager</td><td>全屏 overlay</td><td>ui:open / POPUP_* / NET_*</td><td>设置 tab / toast / warning / 弹窗</td><td><b>⑤</b></td></tr>
+        <tr><td>(DOM)</td><td>Loading / Exception / Modal (React)</td><td>全屏 z9999</td><td>boot / exceptionState</td><td>loading→ready / 异常</td><td><b>⑥</b></td></tr>
+      </table>
+      <p><b>正交性（关键）</b>：L1 只看回合相位、L2 只看玩家钱包态——<b>互不依赖</b>。整屏 = L1 状态 × L2 状态 的某个组合。常见配对见下，但<b>非强绑定</b>：</p>
+      <table>
+        <tr><th>回合相位 (L1 内容)</th><th>常配 PlayState (L2 HUD)</th><th>反例（说明独立）</th></tr>
+        <tr><td>betting（待机+倒计时）</td><td><b>bet</b>（难度器+紫 PLAY）</td><td>已下注者 → <b>cancel</b>（不是 bet）</td></tr>
+        <tr><td>fly（车逐站爬）</td><td><b>cashout</b>（套现+继续）</td><td>未下注者飞行时 → <b>wait</b>（不是 cashout）</td></tr>
+        <tr><td>crash / win / ultimate</td><td>cashout / 结束态</td><td>HUD 由 WALLET_PLAY_STATE 决定，不直接看相位</td></tr>
+      </table>
+      <p><b>分区重叠 & z 序</b>：GameView 131–1100、PlayerHUD 1100–1920 在 <code>y=1100</code> 处接缝；HUD 顶有 <code>separator_line</code>(金线 1080×16 @1100) + <code>#030204@80%</code> 压暗，露出路尾。<b>难度器展开</b>(L2)会向上弹到 1004，<b>盖住 GameView 底部</b>(L2 在 L1 之上)。overlay/弹窗(L3) z 最高。把②的某内容帧 + ③的某 HUD 帧按此叠放 = 整屏（见画廊④合成屏）。</p>
+    </div>
+  </details>
+
+  <h2 class="gallery">② 游戏内容层 ContentView（相位驱动 · NET_ROUND_*）</h2>
+  <p class="gallery-note">L1 = TopBar(余额/币种/齿轮，常驻 chrome) + GameView(玩法演出，随回合相位切)。每帧只画本层；底部 <b>ghost</b> 区是 PlayerHUD 占位(见画廊③)。GameView 视口里的滚动长卷见画廊④。各相位：betting / fly / crash / win / ultimate(终点) / boarding(登车 cut-in)。</p>
+  <div class="grid" id="galContent"></div>
+
+  <h2 class="gallery">③ 玩家 HUD 层 PlayerHUD（钱包驱动 · WALLET_*）</h2>
+  <p class="gallery-note">L2 = 固定框(separator+压暗 + 加减注 BetSwitcher + 5 档快捷投注) + 可换的 <b>betActionStack</b>。仅 PlayState 在变：<b>bet</b>(难度器闭合+紫 PLAY) ↔ <b>cashout</b>(套现+继续)，外加难度器<b>展开</b>。顶部 ghost 区是 ContentView 占位(见画廊②)。注：HUD 布局与游戏相位<b>无关</b>，只随 WALLET_PLAY_STATE 切。</p>
+  <div class="grid" id="galHud"></div>
+
+  <h2 class="gallery">④ 场景长卷 road（GameView 内的滚动内容，真实全高）</h2>
+  <p class="gallery-note">属 L1(ContentView/GameView) 的可滚动内容：每难度 = start + middle(×N 无缝循环) + end 沿移动轴向上滚成长卷，同 S 弯换主题皮。绿线=真 centerline.json 中段；红点=站点，站牌挂对侧；蓝框=1080×969 起始视口；车锚屏 y=727。</p>
+  <div class="grid" id="galScenes"></div>
+
+  <h2 class="gallery">⑤ 覆盖层 SettingPanel + 弹窗 PopupManager（L3，全屏 overlay）</h2>
+  <p class="gallery-note">独立于 L1/L2 的顶层：设置面板(3 tab) + 语言/Toast/断线弹窗。压在游戏之上(z999+)。</p>
+  <div class="grid" id="galOverlay"></div>
+
+  <h2 class="gallery">⑥ 进场 DOM（React，Pixi 之前/之上）</h2>
+  <p class="gallery-note">loading / ready / 异常 / 确认弹窗（React DOM 层，非 Pixi）。独立于 Pixi 三层，全屏 z9999。</p>
+  <div class="grid" id="galDom"></div>
+
+  <h2 class="gallery">⑦ 典型合成屏（②内容 + ③HUD 叠合）</h2>
+  <p class="gallery-note">把画廊②的某内容帧 + 画廊③的某 HUD 帧按「① 合成契约」叠成整屏 —— 这是"玩家实际所见"，也是截图验证的锚。常见配对：betting+bet / fly+cashout / win+cashout。</p>
+  <div class="grid" id="galComposite"></div>
+
+  <details>
+    <summary>⑧ 动画时长 / 缓动（presentation 权威；GDD 仅在节奏层引用）</summary>
+    <div class="body"><table>
+      <tr><th>动画</th><th>时长 / 缓动</th><th>层</th></tr>
+      <tr><td>loading→ready 同槽淡换</td><td>opacity 0.4s（START 延 0.25s 淡入）；hover scale1.15/press0.9 cubic-bezier(.34,1.56,.64,1)</td><td>DOM</td></tr>
+      <tr><td>单站 hop</td><td>1.5s sine.inOut（scrollY tween）；HOP_LOCK 0.65s 防连点</td><td>L1 路</td></tr>
+      <tr><td>登车 cut-in</td><td>总 1.5s（板@1.0s）；+NN% count-up 0.45s；火花飞入 cum 面板 0.7s 抛物线</td><td>L1 overlay</td></tr>
+      <tr><td>难度黑幕淡切</td><td>out 0.25s sine.in → hold 0.05s（换 tile/车皮/赔率）→ in 0.35s sine.out</td><td>L1 路</td></tr>
+      <tr><td>YOU WIN 面板</td><td>scale 0→1 0.25s back.out(2) → 呼吸 1↔1.20 0.35s sine yoyo ∞；金额 count-up 0.4s</td><td>L1 GameView</td></tr>
+      <tr><td>终点 finish drive</td><td>停 0.3s + 半站 drive + 烟花(JSON 6000ms)</td><td>L1 路</td></tr>
+      <tr><td>所有弹窗 开/关</td><td>开 alpha0→1 + scale 0.6→1 0.25s back.out(2)；关反向 back.in(1.6)</td><td>L3 popups</td></tr>
+      <tr><td>难度器展开/收起</td><td>popup 向上展开 997×506 + chevron 翻转</td><td>L2 HUD</td></tr>
+    </table></div>
+  </details>
+
+  <details>
+    <summary>⑨ 滚动路渲染机制（详见画廊④ + GDD 玩法含义）</summary>
+    <div class="body"><ul>
+      <li><b>层级</b>(GameView 内)：roadLayer(tiles) &lt; signLayer(站牌) &lt; carLayer(车) &lt; overlayLayer(红闪/烟雾/烟花/boarding/黑幕)。</li>
+      <li><b>拼接</b>：middle 1080×900（每块 4 站，<b>站距 225px</b>）；start（easy 450 / 其余 900）；end 与最后一块 middle 顶半重叠=终点演出。<code>scrollY</code>=车世界 y，每 hop 前移一站距，<code>ensureRoadCoverage</code> 按 totalLanes 追加(只增)。INITIAL_SCROLL_Y=250。</li>
+      <li><b>车</b>：锚屏 y=727（3/4），<code>CAR_SCALE=0.5</code>；x 沿 centerline 插值；姿态按切线角分桶选 car1–4，撞车 car_crash。<span class="hl">一套骨架，4 套难度车皮</span>。</li>
+      <li><b>站牌</b>：station_sign 运行 235×81；挂红点上方 200px、横向 ±124，<b>挂对侧、镜像使金高光朝内</b>；叠 x_k；betting 预览赔率梯。</li>
+    </ul></div>
+  </details>
+
+  <details>
+    <summary>⑩ 控件渲染约定（资产 origin 规则见 ADD §4，此处只讲渲染）</summary>
+    <div class="body"><ul>
+      <li><b>ImageButton</b>：单张 idle 贴图，<b>hover/pressed/disabled = runtime tint 派生</b>（normal #E5E5E5 / hover #FFF / pressed #CCC / disabled #7F7F7F；PlayButton 特例 hover #FFFFBB / press #BBDDFF），不另出图。</li>
+      <li><b>ToggleButton</b>：on/off <b>两张独立贴图交叉淡入</b> 0.3s easeOutCubic（非 tint）。</li>
+      <li><b>文字一律 runtime 叠</b>（LocalizedText），随 locale 重渲；唯一烧字 = logo(每语) + "YOU WIN" 艺术字。</li>
+      <li><b>HUD 文字风格</b>：金渐变 <code>hudGoldGrad</code>(.249 #fdec7f → .758 #f2a901) + 金阴影 #552a00；字体 "Alibaba PuHuiTi 3.0"。</li>
+      <li><b>数字</b>：runtime 样式化 Text（SpriteDigits 基础设施在但切图未部署）。</li>
+    </ul></div>
+  </details>
+
+  <details>
+    <summary>⑪ 资产注记（源码穷尽抽取 + 实测更正）</summary>
+    <div class="body"><ul>
+      <li>✅ <b>更正</b>：<code>spine/chara9/chara9_2.webp</code> <b>不是孤儿</b>——是 <code>chara9.atlas</code> 第 2 张图集页(双页:chara9.webp 1555²含 region 1/2/5/6 + chara9_2.webp 1415²含 0/3/4)，两张都要出。</li>
+      <li>孤儿：<code>scene_packs/_layouts.json</code>（grep 全 src 无引用，Figma 期产物）。</li>
+      <li><code>MoneyContainer.ts</code> 是空 stub —— 余额显示实际在 <b>TopBar</b>(L1)。</li>
+      <li>设置 tab 图标：tab_icon_setting/guide/history/exit ↔ <code>settings-panel/bottom-buttons/btn_*.png</code>；back ↔ <code>btn_back.png</code>。</li>
+      <li>原生 vs 运行渲染尺寸（前端拉伸）：selector 993×122→997×134、popup_bg 1000×484→997×506、popup_selected 940×106→930×98、station 290×100→235×81、bonus 570×192→340×114、min/max 174×141→174×161。</li>
+      <li>跨游戏残留（cg03r 小鸡）：注释里 "green PLAY"/"chicken"/HOP 0.2+0.4 是旧皮残留——以 runtime 为准(PLAY 紫、hop 1.5s)。</li>
+    </ul></div>
+  </details>
+</main>
+
+<script>
+/* ===== 共享几何（真 centerline.json 中段降采样 46 点） ===== */
+const CENTERLINE = [{iy:0,ix:819.5},{iy:20,ix:811},{iy:40,ix:786},{iy:60,ix:738},{iy:80,ix:663.5},{iy:100,ix:569.5},{iy:120,ix:473.5},{iy:140,ix:385.5},{iy:160,ix:318.5},{iy:180,ix:280},{iy:200,ix:263.5},{iy:220,ix:259},{iy:240,ix:263},{iy:260,ix:280.5},{iy:280,ix:320},{iy:300,ix:382.5},{iy:320,ix:470.5},{iy:340,ix:567},{iy:360,ix:658.5},{iy:380,ix:736},{iy:400,ix:786},{iy:420,ix:811},{iy:440,ix:820},{iy:460,ix:817},{iy:480,ix:801},{iy:500,ix:765.5},{iy:520,ix:704},{iy:540,ix:619},{iy:560,ix:520.5},{iy:580,ix:429.5},{iy:600,ix:348.5},{iy:620,ix:295.5},{iy:640,ix:270},{iy:660,ix:260},{iy:680,ix:259.5},{iy:700,ix:270},{iy:720,ix:297.5},{iy:740,ix:347.5},{iy:760,ix:426},{iy:780,ix:520},{iy:800,ix:615},{iy:820,ix:703},{iy:840,ix:763.5},{iy:860,ix:801.5},{iy:880,ix:817.5},{iy:898,ix:819.5}];
+const MIDDLE_STATIONS=[870,645,420,195];
+function ixAt(iy){let a=CENTERLINE;iy=Math.max(0,Math.min(898,iy));for(let i=0;i<a.length-1;i++){if(iy<=a[i+1].iy){const t=(iy-a[i].iy)/(a[i+1].iy-a[i].iy||1);return a[i].ix+(a[i+1].ix-a[i].ix)*t;}}return a[a.length-1].ix;}
+
+/* ===== 可复用 box 组（box: {x,y,w,h 左上绝对px, k, role, asset, z, anchor, origin, label, sub}） ===== */
+const BG_MAIN={x:0,y:0,w:1080,h:1920,k:'bg',role:'MainBackground',asset:'bg_normal.jpg',z:0,label:'主背景(全屏,露于 HUD 压暗下)',sub:'1080×1920 cover'};
+// L1 — TopBar (ContentView chrome, 常驻)
+const TOPBAR=[
+  {x:0,y:0,w:1080,h:131,k:'chrome',role:'top-bar bg',asset:'content-view/top-bar/background.png',z:10,label:'TopBar 底(浮于路面顶)',sub:'1080×131'},
+  {x:29,y:42,w:600,h:48,k:'chrome',role:'balance',z:11,anchor:'(0,.5)@29,66',label:'余额 999,989.14',sub:'48px #daeaff 千分位+2位'},
+  {x:410,y:36,w:60,h:60,k:'feat',role:'currency icon',asset:'content-view/top-bar/icon_currency_symbol.png',z:11,label:'星币 60',sub:'金五角星金币(紧随余额数字,动态右移;位置随余额长度变)'},
+  {x:906,y:21,w:90,h:90,k:'chrome',role:'settings gear',asset:'content-view/top-bar/icon_settings.png',z:11,anchor:'center@951,66',label:'设置齿轮 90',sub:'→ui:open:settings'},
+];
+const VIEWPORT_NOTE={x:0,y:131,w:1080,h:969,k:'bg',role:'scene viewport',z:1,label:'玩法视口 (GameView·见画廊④长卷)',sub:'1080×969'};
+// L2 — PlayerHUD 固定框
+const HUD_BG=[
+  {x:0,y:1100,w:1080,h:16,k:'feat',role:'separator_line',asset:'player-hud/separator/separator_line.png',z:5,label:'金分隔线',sub:'1080×16 @y1100(接缝)'},
+  {x:0,y:1116,w:1080,h:804,k:'bg',role:'HUD dim',z:4,label:'#030204 @80% 压暗',sub:'露出路尾 (PlayerHUDBackground)'},
+];
+const BETSWITCH=[
+  {x:41.5,y:1188,w:174,h:161,k:'chrome',role:'MIN',asset:'player-hud/buttons/btn_minAdjust_idle.png',z:6,label:'最小 MIN',sub:'174×161(资产174×141)'},
+  {x:127,y:1207.5,w:826,h:122,k:'chrome',role:'bet input',asset:'player-hud/bet-input/bet_amount_input_container.png',z:6,label:'投注额容器 $1.00',sub:'826×122 居中 cx540(INPUT_X=127,源码公式)；$52px+额72px 金'},
+  {x:864.5,y:1188,w:174,h:161,k:'chrome',role:'MAX',asset:'player-hud/buttons/btn_maxAdjust_idle.png',z:6,label:'最大 MAX',sub:'174×161'},
+];
+const QUICKBET=[57.5,252.5,447.5,642.5,837.5].map((x,i)=>({x,y:1360,w:185,h:126,k:'feat',role:'quickbet',asset:'player-hud/buttons/btn_quickBetAmount_idle.png',z:6,label:['0.1','0.5','1','5','10'][i]+' ★',sub:'185×126 step195 紫渐变金框+星币(runtime 5 键)'}));
+const HUD_FRAME=[...HUD_BG,...BETSWITCH,...QUICKBET];
+// 跨层占位 ghost
+const GHOST_HUD={x:0,y:1100,w:1080,h:820,k:'ghost',role:'PlayerHUD 层占位',z:0,label:'▽ PlayerHUD 层 → 画廊③',sub:'此区由 L2 渲染(钱包驱动)'};
+const GHOST_CONTENT={x:0,y:0,w:1080,h:1100,k:'ghost',role:'ContentView 层占位',z:0,label:'△ ContentView 层 → 画廊②',sub:'此区由 L1 渲染(相位驱动)'};
+
+/* ===== L1 GameView 各相位内容（content-only） ===== */
+const gvBetting=()=>[VIEWPORT_NOTE,
+  {x:48,y:138,w:198,h:64,k:'data',role:'station_sign',asset:'main-game/scene-bg/station_sign.png',z:3,anchor:'center@147,170',label:'站牌 x_k 预览(远·对侧)',sub:'渲染~198×64;沿 centerline 左上'},
+  {x:837,y:350,w:196,h:62,k:'data',role:'station_sign',z:3,anchor:'center@935,381',label:'站牌 x_k 预览(近)',sub:'previewLadder 右中'},
+  {x:230,y:800,w:228,h:140,k:'fx',role:'idle jeepney(Spine)',z:4,anchor:'center@344,870',label:'待机吉普尼',sub:'路起点(左下) ~屏y870;倒计时 BetPhaseView'}];
+const gvFlying=()=>[VIEWPORT_NOTE,
+  {x:726,y:972,w:340,h:114,k:'fx',role:'bonus panel',asset:'main-game/game-view/bonus_panel.png',z:3,label:'BONUS +NN% 面板',sub:'340×114 右下(cumBonus>0)'},
+  {x:48,y:138,w:198,h:64,k:'data',role:'station_sign',z:3,anchor:'center@147,170',label:'站牌 x_k(远·对侧)',sub:'对侧交替;可见 2~3 块'},
+  {x:837,y:350,w:196,h:62,k:'data',role:'station_sign',z:3,anchor:'center@935,381',label:'站牌 x_k(近)',sub:'金框深底+金字'},
+  {x:310,y:790,w:230,h:140,k:'fx',role:'car(Spine)',z:4,anchor:'center@425,860',label:'吉普尼 Spine(飞行)',sub:'锚屏y~858(3/4);scale0.5;x 沿 centerline 摆'},
+  {x:340,y:1142,w:400,h:34,k:'chrome',role:'round id',z:8,anchor:'center@540,1158',label:'Bet ID: …',sub:'24px 白(飞行时显)'}];
+const gvCrash=()=>[VIEWPORT_NOTE,
+  {x:0,y:131,w:1080,h:969,k:'overlay',role:'red strobe flash',z:38,label:'全屏红色频闪 flashOverlay',sub:'0xff0000 alpha 脉冲'},
+  {x:400,y:600,w:280,h:220,k:'fx',role:'jeepney frozen(car_crash)',z:36,anchor:'路中 car 锚点',label:'吉普尼冻结(car_crash)',sub:'crashFreeze 停滚'},
+  {x:410,y:560,w:260,h:220,k:'fx',role:'crash smoke burst',asset:'effects/crash-smoke/smoke.webp',z:39,label:'车位烟雾爆裂(SmokeSheetEffect)',sub:'crashBurst'},
+  {x:340,y:235,w:400,h:70,k:'chrome',role:'crash banner(Text,不显眼)',z:40,anchor:'~CRASH_BANNER_Y=120',label:'撞车 Text(短暂/不显眼)',sub:'非图片;玩家几乎无感'}];
+const gvWin=()=>[VIEWPORT_NOTE,
+  {x:726,y:972,w:340,h:114,k:'fx',role:'bonus panel',asset:'main-game/game-view/bonus_panel.png',z:3,label:'BONUS +NN% 面板',sub:'结算时仍显'},
+  {x:282,y:171,w:516,h:320,k:'hero',role:'win_banner',asset:'content-view/game-view/win-banner/label_youWinBanner.png',z:40,anchor:'center@540,331',label:'WIN 横幅(吉普尼徽+彩虹霓虹)',sub:'516×320；scale0→1 back.out(2)→呼吸1.2'},
+  {x:410,y:331,w:260,h:48,k:'feat',role:'youWinText',asset:'content-view/game-view/win-banner/youWinText.png',z:41,anchor:'center@540,355',label:'你赢了 (per-locale 烧字)',sub:'@框心+24'},
+  {x:360,y:401,w:360,h:60,k:'feat',role:'win amount',z:41,anchor:'center@540,421',label:'金额 70px 金 + 星币',sub:'@框心+90；count-up 0.4s'}];
+const gvUltimate=()=>[
+  {x:0,y:131,w:1080,h:969,k:'bg',role:'end scene(finish)',z:1,label:'终点热带海滩(已通关)',sub:'吉普尼已驶达'},
+  {x:380,y:430,w:320,h:200,k:'hero',role:'jeepney(Spine)',z:5,anchor:'center',label:'吉普尼(终点)',sub:''},
+  {x:160,y:240,w:760,h:120,k:'hero',role:'grand prize title',z:42,anchor:'center@540,300',label:'恭喜获得大奖！(金渐变大标题)',sub:'顶部;烧字/Text'},
+  {x:282,y:455,w:516,h:320,k:'hero',role:'win_banner',asset:'content-view/game-view/win-banner/label_youWinBanner.png',z:40,anchor:'center@540,615',label:'WIN 霓虹框(同 win)',sub:'516×320'},
+  {x:410,y:585,w:260,h:48,k:'feat',role:'youWinText',z:41,anchor:'center@540,609',label:'你赢了',sub:'@框心-6'},
+  {x:360,y:655,w:360,h:60,k:'feat',role:'win amount',z:41,anchor:'center@540,685',label:'金额 70px 金 + 星币',sub:'如 34.00★'},
+  {x:726,y:985,w:340,h:114,k:'fx',role:'bonus panel',asset:'main-game/game-view/bonus_panel.png',z:42,label:'BONUS +N% 金牌(右下)',sub:'如 +70%'},
+  ...[['20.00x',60,460],['17.16x',790,860],['14.76x',60,960]].map(([t,x,y])=>({x,y,w:200,h:90,k:'data',role:'station x_k',z:4,label:t+' 站牌',sub:'终点区'})),
+  {x:120,y:200,w:840,h:240,k:'fx',role:'fireworks',asset:'effects/fireworks/firework1-3.png',z:39,label:'烟花(JSON 6000ms)',sub:'两侧'}];
+const gvBoarding=()=>[VIEWPORT_NOTE,
+  {x:0,y:131,w:1080,h:969,k:'overlay',role:'boarding mask',z:38,label:'压暗遮罩 α0.55',sub:'BOARDING_MASK_ALPHA'},
+  {x:40,y:360,w:1000,h:470,k:'fx',role:'boarding car(Spine)',z:40,anchor:'center@540,615',label:'放大吉普尼 scale2.2',sub:'近满宽；霓虹车身'},
+  {x:420,y:380,w:200,h:440,k:'fx',role:'chara(Spine)',z:41,label:'乘客立于车前 scale1.1',sub:'按难度×档选 chara1-9(GDD §5)'},
+  {x:440,y:300,w:200,h:60,k:'feat',role:'+N%',z:42,anchor:'center@540,325',label:'+N% 本站 bonus(头顶)',sub:'count-up 0.45s→飞入 BONUS'},
+  {x:726,y:972,w:340,h:114,k:'fx',role:'bonus panel',asset:'main-game/game-view/bonus_panel.png',z:42,label:'BONUS +NN% 累计',sub:'右下'}];
+
+/* ===== L2 PlayerHUD betActionStack 各 PlayState ===== */
+const hudBet=()=>[
+  {x:41.5,y:1518,w:997,h:134,k:'chrome',role:'difficulty selector(closed)',asset:'player-hud/difficulty_selector/selector_base.png',z:7,label:'难度器闭合 极难 Hardcore ▼',sub:'997×134；标80px金左对齐@106,67；chevron@909（示例取 Hardcore，对齐截图）'},
+  {x:34.5,y:1704,w:1011,h:195,k:'feat',role:'PLAY',asset:'player-hud/buttons/btn_play_idle.png',z:7,anchor:'center@540,1801.5',origin:'generate',label:'开始 PLAY (紫金)',sub:'1011×195；标150px金；非绿(旧注释残留)'}];
+const hudDiffOpen=()=>[
+  {x:41.5,y:1004,w:997,h:506,k:'overlay',role:'popup bg',asset:'player-hud/difficulty_selector/popup_background.png',z:30,label:'难度弹层(向上盖住 GameView 底)',sub:'997×506 @selector上方(源码常量)'},
+  ...[0,1,2,3].map(i=>({x:75,y:1061+i*98,w:930,h:98,k:i===3?'feat':'chrome',role:i===3?'diff row(选中)':'diff row',asset:i===3?'player-hud/difficulty_selector/popup_selected.png':undefined,z:31,label:['简单 Easy','中等 Medium','困难 Hard','极难 Hardcore ◀选中'][i],sub:'930×98 弹层内居中(ROW_PAD_X33.5/Y57,源码公式)；标80px金左缩进50'+(i===3?'；popup_selected 高亮吸附当前行':'')})),
+  {x:41.5,y:1518,w:997,h:134,k:'chrome',role:'selector(open)',z:7,label:'难度器(展开 chevron▲)',sub:'997×134'}];
+const hudCashout=()=>[
+  {x:67,y:1518,w:460,h:381,k:'feat',role:'CASHOUT',asset:'player-hud/buttons/btn_cashout_idle.png',z:7,origin:'generate',label:'套现\\n$<当前派彩> (金/橙)',sub:'460×381；套现76px+$值；betActionStack 内'},
+  {x:553,y:1518,w:460,h:381,k:'feat',role:'GO',asset:'player-hud/buttons/btn_go_idle.png',z:7,origin:'generate',label:'继续\\n<下一站x> (绿)',sub:'460×381；继续150px+下一站倍率；gap26'}];
+
+/* ===== cards ===== */
+const CONTENT=[
+  {id:'c-betting',cap:'内容 — betting(待机+倒计时)',badge:'validated',meta:'相位 BETTING：待机吉普尼 + 站牌赔率预览；倒计时 BetPhaseView。HUD 见画廊③。注：场景演员(车/站牌)坐标为截图目测近似(±手动裁剪误差)，运行时由 centerline 插值算出',layers:[BG_MAIN,...TOPBAR,...gvBetting(),GHOST_HUD]},
+  {id:'c-fly',cap:'内容 — fly(逐站爬)',badge:'derived',meta:'相位 RUNNING：车在路上逐站 hop；多块站牌 x_k；右下 BONUS。无飞行态截图：路形/站牌位沿用 betting 实测(同路)，飞行态属代码推定。Bet ID 文本未在源码确认',layers:[BG_MAIN,...TOPBAR,...gvFlying(),GHOST_HUD]},
+  {id:'c-crash',cap:'内容 — crash(撞车)',badge:'derived',meta:'吉普尼路中冻结(car_crash) + 车位烟雾 + 全屏红频闪；撞车横幅是不显眼 Text。Figma 无此设计帧',layers:[BG_MAIN,...TOPBAR,...gvCrash(),GHOST_HUD]},
+  {id:'c-win',cap:'内容 — win(YOU WIN)',badge:'derived',meta:'manual cashout：霓虹框 你赢了+金额 居中(540,331)呼吸；BONUS 面板仍在。坐标=源码常量推定(无 win 截图)',layers:[BG_MAIN,...TOPBAR,...gvWin(),GHOST_HUD]},
+  {id:'c-ultimate',cap:'内容 — ultimate(终点大奖)',badge:'validated',meta:'到终点海滩：金「恭喜获得大奖！」+ 霓虹框你赢了 + 右下 BONUS + 烟花 + 站牌',layers:[BG_MAIN,...TOPBAR,...gvUltimate(),GHOST_HUD]},
+  {id:'c-boarding',cap:'内容 — boarding(登车 cut-in)',badge:'derived',meta:'乘客上车过场 1.5s：压暗α0.55 + 放大车 scale2.2 + 乘客立车前 + 头顶 +N% + 右下 BONUS。坐标=源码常量推定(无 boarding 截图)',layers:[BG_MAIN,...TOPBAR,...gvBoarding(),GHOST_HUD]},
+];
+const HUD=[
+  {id:'h-bet',cap:'HUD — PlayState: bet',badge:'validated',meta:'下注态：固定框(加减注+5 档快捷) + 难度器闭合 + 紫 PLAY。4 难度仅 scene 换皮、HUD 不变',layers:[GHOST_CONTENT,...HUD_FRAME,...hudBet()]},
+  {id:'h-diffopen',cap:'HUD — 难度器展开',badge:'validated',meta:'闭合 pill 上方向上弹 popup（盖住 GameView 底部，L2 在 L1 之上）。弹层上沿升入 ContentView 区(y1004)',layers:[{x:0,y:0,w:1080,h:1004,k:'ghost',role:'ContentView 层占位',z:0,label:'△ ContentView 层 → 画廊②',sub:'难度弹层升入此区下沿'},...HUD_FRAME,...hudDiffOpen()]},
+  {id:'h-cashout',cap:'HUD — PlayState: cashout',badge:'derived',meta:'飞行态：套现(金/橙,$派彩) + 继续(绿,下一站 x) 原地替换难度器/PLAY；betActionStack 内切。坐标=源码常量(LaneActionButtons)推定(无飞行态截图)',layers:[GHOST_CONTENT,...HUD_FRAME,...hudCashout()]},
+];
+const OVERLAY=[
+ {id:'set-setting',cap:'设置 — Settings tab',badge:'validated',meta:'全屏覆盖 z999(底=夜街)；标题0-144 + 滚动区 + 底 tab；音量(音效/音乐各3档)+语言',layers:[
+   {x:0,y:0,w:1080,h:1920,k:'bg',role:'panel bg',asset:'setting_panel_bg',z:1,label:'设置面板底(夜街)',sub:'1080×1920'},
+   {x:0,y:0,w:1080,h:144,k:'chrome',role:'page title',asset:'settings_header_bg',z:5,label:'标题区',sub:'62px@540,72'},
+   {x:88,y:226,w:320,h:64,k:'chrome',role:'vol head',z:6,label:'Volume 音量',sub:'金大字+下划线 @中心256'},
+   {x:88,y:362,w:200,h:60,k:'chrome',role:'sfx label',z:6,label:'SFX',sub:'行心~394'},
+   {x:415,y:364,w:60,h:56,k:'chrome',role:'sfx mute',asset:'sound-controll/icon_mute',z:6,label:'静音▢',sub:'60×56 @445,392'},
+   ...[490,653,816].map((x,i)=>({x,y:372,w:150,h:46,k:'chrome',role:'sfx vol tap',z:6,label:'档'+(i+1),sub:'150×46'})),
+   {x:88,y:555,w:200,h:60,k:'chrome',role:'bgm label',z:6,label:'BGM',sub:'行心~585'},
+   {x:415,y:557,w:60,h:56,k:'chrome',role:'bgm mute',asset:'sound-controll/icon_mute',z:6,label:'静音▢',sub:'60×56（之前漏掉）'},
+   ...[490,653,816].map((x,i)=>({x,y:565,w:150,h:46,k:'chrome',role:'bgm vol tap',z:6,label:'档'+(i+1),sub:'150×46'})),
+   {x:60,y:700,w:960,h:3,k:'chrome',role:'divider',z:5,label:'分隔线',sub:'音量/语言分区'},
+   {x:88,y:784,w:360,h:64,k:'chrome',role:'lang head',z:6,label:'Language 语言',sub:'金大字+下划线 @中心812（之前漏掉）'},
+   {x:88,y:944,w:380,h:60,k:'chrome',role:'select-language label',z:6,label:'Select Language 选择语言',sub:'@中心973'},
+   {x:490,y:930,w:408,h:90,k:'feat',role:'language value',asset:'lang_switcher_container',z:6,label:'English (当前)',sub:'金高亮条;点弹 LanguagePicker'},
+   {x:902,y:932,w:84,h:84,k:'feat',role:'language refresh',asset:'lang_switch_icon',z:7,label:'↻ 切换',sub:'橙方钮 84'},
+   ...tabBar('setting')]},
+ {id:'set-guide',cap:'设置 — Guide tab (帮助)',badge:'derived',meta:'「怎么玩」金标题；4 段(下注/选路线/出发/每站决策)；出发段含路面+站牌示意；可滚动。无 guide 截图：分段坐标属代码/版式推定',layers:[
+   {x:0,y:0,w:1080,h:1920,k:'bg',role:'panel bg',asset:'setting_panel_bg',z:1,label:'设置面板底(夜街)',sub:''},
+   {x:0,y:0,w:1080,h:144,k:'chrome',role:'page title',z:5,label:'帮助 / 怎么玩',sub:'金标题'},
+   {x:32,y:200,w:1016,h:260,k:'chrome',role:'guide sec1',z:6,label:'① 下注(0.1/0.5/1/5/10 示意)',sub:'圆角面板 r24 金边'},
+   {x:32,y:500,w:1016,h:200,k:'chrome',role:'guide sec2',z:6,label:'② 选路线(4 档难度)',sub:''},
+   {x:32,y:740,w:596,h:340,k:'chrome',role:'guide sec3 text',z:6,label:'③ 出发(逐站往前)',sub:'左文'},
+   {x:628,y:780,w:360,h:260,k:'data',role:'road demo',asset:'tile_easy_middle + car spine',z:6,label:'路面+站牌示意(1.17/1.10/1.04/1.01x)',sub:'车冻结car4'},
+   {x:32,y:1120,w:1016,h:560,k:'chrome',role:'guide sec4',z:6,label:'④ 每站决策 …',sub:'(滚动续)'},
+   ...tabBar('guide')]},
+ {id:'set-history',cap:'设置 — History tab (历史记录)',badge:'validated',meta:'3列统计头(投注次数/总投注/总派彩) + 虚拟滚动注单 + 时间筛选 tab',layers:[
+   {x:0,y:0,w:1080,h:1920,k:'bg',role:'panel bg',asset:'setting_panel_bg',z:1,label:'设置面板底(夜街)',sub:''},
+   {x:0,y:0,w:1080,h:144,k:'chrome',role:'page title',z:5,label:'历史记录',sub:''},
+   ...[0,1,2].map(i=>({x:32+i*339,y:176,w:338,h:116,k:'chrome',role:'stat col',z:6,anchor:'center@'+(201+i*339)+',230',label:['投注次数 Bet Count','总投注 Total Bet','总派彩 Total Payout'][i],sub:'COL_W≈338(=1016/3);标24上/值56下;虚线分隔'})),
+   {x:32,y:360,w:1016,h:1140,k:'data',role:'scroll list(虚拟)',z:5,label:'注单列表(虚拟滚动)',sub:'行 1016×120 gap12'},
+   ...[0,1,2,3].map(i=>({x:32,y:368+i*132,w:1016,h:120,k:'chrome',role:'history row',z:6,label:['进行中 @1.07x','撞毁 @1.35x 输','提现 @1.04x(+10%) 赢$0.14','撞毁 @2.97x(+50%) 输'][i],sub:'ITEM_H120 gap12: 状态@倍率 / 订单号+盈亏 / 日期+投注额'})),
+   ...[0,1,2].map(i=>({x:32+i*351,y:1600,w:314,h:100,k:i===2?'feat':'chrome',role:'filter tab',asset:'history_range_idle/active',z:6,label:['今天 Today','最近3天 Recent 3 Days','最近一周 Recent Week'][i],sub:'314×100 step351(gap37) 交叉淡入'+(i===2?'(选中)':'')})),
+   ...tabBar('history')]},
+ {id:'pop-lang',cap:'弹窗 — 语言选择',badge:'validated',meta:'设置页上模态(dim0.5)；半透深色面板+金/青描边；标题「语言」带 TitleAccentLines；3 行 English/简体中文(选中)/繁體中文',layers:[
+   {x:0,y:0,w:1080,h:1920,k:'overlay',role:'dim',z:50,label:'遮罩 0.5',sub:''},
+   {x:140,y:480,w:800,h:960,k:'chrome',role:'panel',z:51,anchor:'center@540,960',label:'语言面板(半透+金/青描边)',sub:'800×960 r28'},
+   {x:240,y:560,w:600,h:90,k:'chrome',role:'header',z:52,anchor:'center@540,600',label:'语言 64px + 左右金 TitleAccentLines',sub:'白描边+glow'},
+   ...[0,1,2].map(i=>({x:266,y:800+i*183,w:548,h:114,k:i===1?'feat':'chrome',role:'lang row',asset:'lang_option_bg',z:52,label:['English','简体中文 ◀选中','繁體中文'][i],sub:'548×114'}))]},
+ {id:'pop-toast',cap:'弹窗 — Toast',badge:'derived',meta:'非模态；882×179；中心下移 +760；默认 3s 自隐(-1 常驻)。Figma 无 toast 设计帧',layers:[
+   {x:99,y:1630,w:882,h:179,k:'chrome',role:'toast',asset:'toast_panel_bg',z:50,anchor:'center@540,1720',label:'Toast 文字 48px',sub:'882×179'}]},
+ {id:'pop-warning',cap:'弹窗 — 断线提示 (Figma)',badge:'figma',meta:'in-game Pixi 断线弹窗(模态 dim #000@0.75)；提示 + 网络断开文案 + 重新载入键。坐标取自 Figma 主游戏-断线提示弹窗',layers:[
+   {x:0,y:0,w:1080,h:1920,k:'overlay',role:'dim',z:50,label:'遮罩 #000@0.75',sub:''},
+   {x:53,y:694,w:974,h:535,k:'chrome',role:'panel',asset:'image471',z:51,anchor:'center@540,961',label:'弹窗面板',sub:'974×535 @53,694 r59'},
+   {x:460,y:750,w:158,h:56,k:'chrome',role:'title',z:52,anchor:'@460,750',label:'提示',sub:'#FFFFFF 158×56'},
+   {x:127,y:856,w:825,h:134,k:'chrome',role:'content',z:52,anchor:'@127,856',label:'您的网络连接似乎断开了，请确保网络稳定后重新载入游戏！',sub:'825×134(可换行)'},
+   {x:345,y:1047,w:390,h:120,k:'feat',role:'reload btn',asset:'image489',z:52,anchor:'@345,1047',label:'重新载入',sub:'390×120 r32'},
+   {x:414,y:1062,w:252,h:90,k:'feat',role:'reload label',z:53,anchor:'@414,1062',label:'重新载入',sub:'#FFFFFF +stroke'}]},
+];
+const DOM=[
+ {id:'loading',cap:'进场 — loading',badge:'derived',meta:'React DOM 覆盖 z9999；进度条加载中；背后 bg+logo。无 loading 截图：坐标=代码常量推定',layers:[
+   {x:0,y:0,w:1080,h:1920,k:'bg',role:'bg',asset:'loading/game-view/background.jpg',z:1,label:'加载背景(暖场吉普尼)',sub:'1080×1920 cover'},
+   {x:248,y:214,w:584,h:330,k:'hero',role:'logo',asset:'loading/game-title-logo/logo_<locale>.png',z:5,label:'logo 乘风吉普尼',sub:'584×330 @248,214'},
+   {x:157,y:1488,w:766,h:86,k:'feat',role:'progress container',asset:'loading/progress-bar/progress_bar_container.png',z:6,anchor:'DOM bottom:18% 居中',label:'进度条容器',sub:'766×86'},
+   {x:174,y:1505,w:731,h:52,k:'feat',role:'progress fill',asset:'loading/progress-bar/progress_bar_filled.png',z:7,label:'填充(clip 左→右)',sub:'731×52'},
+   {x:480,y:1495,w:120,h:60,k:'chrome',role:'pct text',z:8,label:'NN%',sub:'48px 白'}]},
+ {id:'ready',cap:'进场 — ready',badge:'derived',meta:'进度满→进度条淡出，START 同槽淡入；点击发 ENTER_GAME。无 ready 截图：坐标=代码常量推定',layers:[
+   {x:0,y:0,w:1080,h:1920,k:'bg',role:'bg',asset:'loading/game-view/background.jpg',z:1,label:'加载背景',sub:''},
+   {x:248,y:214,w:584,h:330,k:'hero',role:'logo',z:5,label:'logo 乘风吉普尼',sub:''},
+   {x:234,y:1432,w:612,h:190,k:'feat',role:'start button',asset:'loading/start-button/btn_gamestart_idle.png',z:7,anchor:'DOM bottom:18%',label:'开始游戏 START',sub:'612×190 金八角；hover1.15/press0.9'}]},
+ {id:'exception',cap:'异常屏 (Figma: login_expired + currency_error)',badge:'figma',meta:'DOM 覆盖于 loading 背景；底部 navy 9-slice 面板(标题+说明)；按 exceptionState 取 i18n。坐标取自 Figma',layers:[
+   {x:0,y:0,w:1080,h:1920,k:'bg',role:'bg',asset:'UpscaledImage001',z:1,label:'加载背景(农场/吉普尼)',sub:''},
+   {x:146,y:-151,w:787,h:787,k:'hero',role:'hero art',asset:'image527',z:4,label:'顶部主视觉(出血)',sub:'787×787 @146,-151'},
+   {x:1014,y:32,w:66,h:66,k:'chrome',role:'exit',asset:'settings-panel/bottom-buttons/btn_back.png',z:9,label:'退出',sub:'66 右上'},
+   {x:101,y:1517,w:878,h:206,k:'chrome',role:'panel(login_expired)',asset:'navy 9-slice',z:8,label:'navy 面板(9-slice)',sub:'878×206 @101,1517'},
+   {x:389,y:1570,w:302,h:32,k:'chrome',role:'title',z:9,label:'Login Expired / 登录已过期',sub:'titleKey'},
+   {x:135,y:1640,w:811,h:21,k:'chrome',role:'desc',z:9,label:'Please refresh… / 请刷新…',sub:'descKey'},
+   {x:101,y:1556,w:878,h:260,k:'data',role:'currency_error 变体',z:6,label:'变体:面板 878×260',sub:'「不支持当前货币」@251,1581 + 客服@271,1703'}]},
+ {id:'modal',cap:'ConfirmModal (reload, DOM)',badge:'derived',meta:'loading 阶段 React DOM 确认弹窗；居中 895×600(vw)；弹入 scale .5→1.05→1 0.4s。游戏内断线 reload 见 pop-warning',layers:[
+   {x:0,y:0,w:1080,h:1920,k:'overlay',role:'dim',z:20,label:'遮罩',sub:'(模态)'},
+   {x:92,y:660,w:895,h:600,k:'chrome',role:'panel',asset:'loading/error-panel/background.png',z:21,label:'错误面板底',sub:'渲染 895×600'},
+   {x:200,y:710,w:680,h:70,k:'chrome',role:'title',z:22,label:'标题 深蓝#0d4c8d',sub:''},
+   {x:200,y:820,w:680,h:200,k:'chrome',role:'desc',z:22,label:'正文 白',sub:''},
+   {x:432,y:1120,w:216,h:90,k:'feat',role:'reload',asset:'loading/error-panel/btn_reload_idle.png',z:22,label:'reload 棕字',sub:''}]},
+];
+// 典型合成屏（L1 内容 + L2 HUD 叠合，给人/截图）
+const COMPOSITE=[
+  {id:'x-betting',cap:'合成屏 — betting',badge:'validated',meta:'②c-betting + ③h-bet 按合成契约叠成整屏',layers:[BG_MAIN,...TOPBAR,...gvBetting(),...HUD_FRAME,...hudBet()]},
+  {id:'x-fly',cap:'合成屏 — fly',badge:'validated',meta:'②c-fly + ③h-cashout',layers:[BG_MAIN,...TOPBAR,...gvFlying(),...HUD_FRAME,...hudCashout()]},
+  {id:'x-win',cap:'合成屏 — win',badge:'validated',meta:'②c-win + ③h-cashout（结算时 HUD 仍套现态）',layers:[BG_MAIN,...TOPBAR,...gvWin(),...HUD_FRAME,...hudCashout()]},
+];
+
+function tabBar(active){
+  const tabs=[['back','返回'],['setting','设置'],['guide','帮助'],['history','历史记录'],['exit','退出游戏']];
+  const out=[{x:0,y:1740,w:1080,h:180,k:'chrome',role:'tab bar bg',asset:'tab_bar_bg',z:10,label:'底部 tab 栏',sub:'1080×180 @y1740'}];
+  tabs.forEach((t,i)=>out.push({x:i*216,y:1740,w:216,h:180,k:t[0]===active?'feat':'chrome',role:'tab '+t[0],asset:'settings-panel/bottom-buttons/btn_'+t[0]+'.png',z:11,label:t[1]+(t[0]===active?' ◀':''),sub:t[0]==='back'?'图标140':'图标72+标32'}));
+  return out;
+}
+
+/* ===== 场景长卷 ===== */
+const SKINS={easy:'热带海滩+乡村集市(白天)',medium:'黄昏+串灯',hard:'夜晚霓虹都市',hardcore:'未来科技城(青/金)'};
+const MIDN={easy:7,medium:5,hard:4,hardcore:3}, LANES={easy:28,medium:22,hard:18,hardcore:14};
+const SCENES=['easy','medium','hard','hardcore'].map(d=>{
+  const startH=(d==='easy')?450:900,midH=900,endH=900,H=endH+midH+startH;
+  return {difficulty:d,startH,midH,endH,H,skin:SKINS[d],note:`${LANES[d]} 站 = start(${startH}) + middle×${MIDN[d]}(${midH}) + end(${endH})；图示代表 3 段，真实 ≈ ${startH+MIDN[d]*midH+endH}px`};
+});
+
+/* ===== 渲染 ===== */
+function anchorTitle(b){let s=b.role;if(b.asset)s+=' · '+b.asset;if(b.anchor)s+=' · anchor '+b.anchor;if(b.z!=null)s+=' · z'+b.z;if(b.origin)s+=' · '+b.origin;s+=' · '+(b.label||'').replace(/\n/g,' ');if(b.sub)s+=' · '+b.sub;return s;}
+function makeBox(b,scale){
+  const d=document.createElement('div');d.className='box '+b.k;
+  d.style.left=(b.x*scale)+'px';d.style.top=(b.y*scale)+'px';d.style.width=(b.w*scale)+'px';d.style.height=(b.h*scale)+'px';d.style.zIndex=b.z||1;
+  d.title=anchorTitle(b);d.dataset.role=b.role||'';if(b.asset)d.dataset.asset=b.asset;d.dataset.box=[b.x,b.y,b.w,b.h].join(',');if(b.anchor)d.dataset.anchor=b.anchor;if(b.origin)d.dataset.origin=b.origin;
+  const l=document.createElement('div');l.className='bl';l.textContent=(b.label||'').replace(/\n/g,' ');d.appendChild(l);
+  if(b.sub){const s=document.createElement('div');s.className='bd dims';s.textContent=b.sub;d.appendChild(s);}
+  return d;
+}
+const ZONES=[{y:0,h:131,t:'TopBar 0–131'},{y:131,h:969,t:'GameView 131–1100'},{y:1100,h:820,t:'PlayerHUD 1100–1920'}];
+function makeZones(scale){const f=document.createDocumentFragment();ZONES.forEach(z=>{const d=document.createElement('div');d.className='box zone';d.style.left='0';d.style.top=(z.y*scale)+'px';d.style.width=(1080*scale)+'px';d.style.height=(z.h*scale)+'px';d.style.zIndex=200;const l=document.createElement('div');l.className='zonelabel';l.textContent=z.t;d.appendChild(l);f.appendChild(d);});return f;}
+function renderCards(rootId,cards,withZones){
+  const W=300,scale=W/1080,H=1920*scale,root=document.getElementById(rootId);
+  cards.forEach(s=>{
+    const card=document.createElement('div');card.className='frame';
+    card.innerHTML=`<div class="cap">${s.cap}<span class="badge ${s.badge}">${({validated:'validated',figma:'figma 设计稿',derived:'code-derived'})[s.badge]||'code-derived'}</span></div><div class="meta">${s.meta}</div>`;
+    const stage=document.createElement('div');stage.className='stage';stage.style.width=W+'px';stage.style.height=H+'px';
+    s.layers.forEach(b=>stage.appendChild(makeBox(b,scale)));
+    if(withZones){const zw=document.createElement('div');zw.className='zones';zw.appendChild(makeZones(scale));stage.appendChild(zw);}
+    card.appendChild(stage);root.appendChild(card);
+  });
+}
+function renderScenes(){
+  const DH=560,root=document.getElementById('galScenes');
+  SCENES.forEach(s=>{
+    const scale=DH/s.H,W=1080*scale;
+    const card=document.createElement('div');card.className='frame';
+    card.innerHTML=`<div class="cap">场景 — ${s.difficulty}<span class="badge validated">validated</span></div><div class="meta">皮：${s.skin}<br>${s.note}</div>`;
+    const stage=document.createElement('div');stage.className='stage';stage.style.width=W+'px';stage.style.height=DH+'px';
+    [['end',0,s.endH,'终点段·升旗'],['middle',s.endH,s.midH,'中段·×N 循环'],['start',s.endH+s.midH,s.startH,'起步段·START+棋格旗']].forEach(([t,y,h,lab])=>{
+      const d=document.createElement('div');d.className='box bg';d.style.left='0';d.style.top=(y*scale)+'px';d.style.width=W+'px';d.style.height=(h*scale)+'px';d.style.zIndex=1;
+      d.innerHTML=`<div class="bl">${t}</div><div class="bd dims">1080×${h}</div>`;d.title=`${lab} · 1080×${h}`;stage.appendChild(d);
+    });
+    const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('width',W);svg.setAttribute('height',DH);svg.style.zIndex=3;
+    const vpTop=s.H-969,carY=vpTop+727,SP=225;
+    // 中心线：沿整条路平铺同一条 S 弯（按车位定相位，使站点恰落在弯上；tile 首尾 ix≈819.5 无缝衔接）
+    const PHASE=870-carY+SP, ilocal=y=>{let v=(y+PHASE)%900;return v<0?v+900:v;};
+    const cpts=[];for(let y=0;y<=s.H;y+=15)cpts.push(`${(ixAt(ilocal(y))*scale).toFixed(1)},${(y*scale).toFixed(1)}`);
+    const pl=document.createElementNS('http://www.w3.org/2000/svg','polyline');pl.setAttribute('points',cpts.join(' '));pl.setAttribute('fill','none');pl.setAttribute('stroke','#3fae5a');pl.setAttribute('stroke-width','2');pl.setAttribute('opacity','.9');svg.appendChild(pl);
+    // 站点：自车前方第一站起、每 SP=225 一站向上铺满整条路。【关键】各难度起始视口内恒为 3 站(车前方)，仅换皮不同；车后(下方)为起步直道无站
+    for(let j=0;;j++){const sy=carY-SP*(j+1);if(sy<40)break;
+      const cx=ixAt(ilocal(sy))*scale,cy=sy*scale,syy=cy-200*scale,hasSign=syy>=(81*scale)/2+1;
+      let side,sx;
+      if(hasSign){side=(j%2===0)?-1:1;sx=cx+side*124*scale;
+        const ln=document.createElementNS('http://www.w3.org/2000/svg','line');ln.setAttribute('x1',cx);ln.setAttribute('y1',cy);ln.setAttribute('x2',sx);ln.setAttribute('y2',syy);ln.setAttribute('stroke','#caa23a');ln.setAttribute('stroke-width','.6');ln.setAttribute('opacity','.55');svg.appendChild(ln);}
+      // ① 站点：路面上的红点（带白圈）
+      const cring=document.createElementNS('http://www.w3.org/2000/svg','circle');cring.setAttribute('cx',cx);cring.setAttribute('cy',cy);cring.setAttribute('r','5');cring.setAttribute('fill','none');cring.setAttribute('stroke','#fff');cring.setAttribute('stroke-width','1');cring.setAttribute('opacity','.8');svg.appendChild(cring);
+      const c=document.createElementNS('http://www.w3.org/2000/svg','circle');c.setAttribute('cx',cx);c.setAttribute('cy',cy);c.setAttribute('r','3.5');c.setAttribute('fill','#e0584d');svg.appendChild(c);
+      const ct=document.createElementNS('http://www.w3.org/2000/svg','text');ct.setAttribute('x',cx);ct.setAttribute('y',cy-9);ct.setAttribute('fill','#e09a8f');ct.setAttribute('font-size','8');ct.setAttribute('text-anchor','middle');ct.textContent='站点';svg.appendChild(ct);
+      // ② 数字牌：金框 station_sign（带浅填充 + x_k 文字；挂对侧）
+      if(hasSign){
+        const r=document.createElementNS('http://www.w3.org/2000/svg','rect');r.setAttribute('x',sx-(235*scale)/2);r.setAttribute('y',syy-(81*scale)/2);r.setAttribute('width',235*scale);r.setAttribute('height',81*scale);r.setAttribute('fill','rgba(202,162,58,.16)');r.setAttribute('stroke','#caa23a');r.setAttribute('stroke-width','1.2');r.setAttribute('rx','3');svg.appendChild(r);
+        const rt=document.createElementNS('http://www.w3.org/2000/svg','text');rt.setAttribute('x',sx);rt.setAttribute('y',syy+4);rt.setAttribute('fill','#f0d68a');rt.setAttribute('font-size','11');rt.setAttribute('font-weight','700');rt.setAttribute('text-anchor','middle');rt.textContent='x_k';svg.appendChild(rt);
+      }
+    }
+    stage.appendChild(svg);
+    const vp=document.createElement('div');vp.className='box';vp.style.border='2px solid #4a90e2';vp.style.background='rgba(74,144,226,.06)';vp.style.left='0';vp.style.top=(vpTop*scale)+'px';vp.style.width=W+'px';vp.style.height=(969*scale)+'px';vp.style.zIndex=4;
+    vp.innerHTML='<div class="bl" style="color:#9cc4f2">1080×969 起始视口</div>';stage.appendChild(vp);
+    const car=document.createElement('div');car.className='box fx';car.style.left=(0.4*W)+'px';car.style.top=((vpTop+727)*scale)+'px';car.style.width=(70*scale)+'px';car.style.height=(50*scale)+'px';car.style.zIndex=5;car.innerHTML='<div class="bl">车</div>';car.title='吉普尼锚于视口 y=727';stage.appendChild(car);
+    const ar=document.createElement('div');ar.style.cssText='position:absolute;right:4px;top:50%;transform:translateY(-50%);z-index:6;color:#8fd0a0;font-size:18px';ar.textContent='↑';stage.appendChild(ar);
+    card.appendChild(stage);root.appendChild(card);
+  });
+}
+renderCards('galContent',CONTENT,true);
+renderCards('galHud',HUD,true);
+renderScenes();
+renderCards('galOverlay',OVERLAY,false);
+renderCards('galDom',DOM,false);
+renderCards('galComposite',COMPOSITE,true);
+document.getElementById('showZones').addEventListener('change',e=>{document.querySelectorAll('.zones').forEach(z=>z.style.display=e.target.checked?'':'none')});
+document.getElementById('showDims').addEventListener('change',e=>{document.querySelectorAll('.dims').forEach(z=>z.style.display=e.target.checked?'':'none')});
+</script>
+</body>
+</html>

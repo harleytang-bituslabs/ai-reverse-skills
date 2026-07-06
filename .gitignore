@@ -1,0 +1,6 @@
+# 中间产物:构建/解包/抽取/合成,全部可由 skill scripts 从 CDN 重新推导
+work/
+node_modules/
+__pycache__/
+*.pyc
+.DS_Store

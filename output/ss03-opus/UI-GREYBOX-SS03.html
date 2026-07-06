@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ss03「Mahjong Streak / 麻将连莊」UI 灰盒稿 (逆向·Unity·1.0.0-56)</title>
+<!--
+  三件套之一(配套 ART-AUDIO-SS03.md / GDD-SS03.md)。Unity WebGL 1.0.0-56。
+  坐标来源: UnityPy 解 data.unity3d → compose-layout.py 合成屏幕 px(top-left, 帧 1080×1920)。全部回源自构建,不参考任何旧草稿。
+  徽标(skill 三态): extracted=构建 RectTransform 合成 px / 导出资产; derived=世界空间 runtime 装配或布局组运行时排布(非静态构建 px); validated=真机截图核过(本轮无截图→暂无)。
+  会话数值(余额/赢分/注额/大奖/自动次数)一律占位 <…>。
+  ★ 屏(screens) vs 场景(scenes)按【代码结构】分:见 §注释。
+-->
+<style>
+:root{--bg:#0c1018;--card:#141a24;--bd:#283242;--fg:#cdd6e2;--mut:#7d8aa0;--acc:#6db3f2;
+--k-bg:#23303f;--k-chrome:#2c3340;--k-feat:#3a3320;--k-hero:#3c3414;--k-fx:#2e2440;--k-data:#163040;--k-overlay:#3a1f2e;--k-grid:#2a2433;--k-dragon:#3a2410;--k-banner:#2d3a1c;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.5 -apple-system,"PingFang SC","Segoe UI",sans-serif}
+header{padding:18px 24px;border-bottom:1px solid var(--bd);position:sticky;top:0;background:var(--bg);z-index:1000}
+h1{margin:0 0 4px;font-size:20px}
+.sub{color:var(--mut);font-size:12px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:11px;color:var(--mut)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.swatch{width:12px;height:12px;border-radius:2px;border:1px solid var(--bd);display:inline-block}
+.controls{margin-top:10px;font-size:12px}.controls label{margin-right:16px;cursor:pointer;color:var(--fg)}
+main{padding:22px}
+h2.gallery{font-size:16px;margin:30px 0 6px;border-left:3px solid var(--acc);padding-left:10px}
+.gallery-note{color:var(--mut);font-size:12px;margin:0 0 16px;max-width:1140px}
+.grid{display:flex;flex-wrap:wrap;gap:26px;align-items:flex-start}
+.frame{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:10px}
+.frame .cap{font-size:12px;font-weight:600;margin-bottom:2px}
+.frame .meta{font-size:11px;color:var(--mut);margin-bottom:8px;max-width:300px}
+.badge{display:inline-block;font-size:10px;padding:1px 6px;border-radius:3px;margin-left:6px;vertical-align:middle}
+.badge.validated{background:#0e3a4d;color:#5fd0e0}.badge.extracted{background:#14361f;color:#67d98a}.badge.derived{background:#3a2a12;color:#e0a44a}
+.stage{position:relative;background:#070a0f;border:1px solid #1c2430;overflow:hidden;isolation:isolate}
+.box{position:absolute;border:1px solid rgba(255,255,255,.28);overflow:hidden;display:flex;flex-direction:column;justify-content:flex-start}
+.box .bl{font-size:9px;line-height:1.15;padding:2px 3px;color:#e7edf5;text-shadow:0 1px 2px #000;font-weight:600}
+.box .bd{font-size:8px;line-height:1.1;padding:0 3px;color:#aebccf}
+.box.bg{background:var(--k-bg)}.box.chrome{background:var(--k-chrome)}.box.feat{background:var(--k-feat)}
+.box.hero{background:var(--k-hero)}.box.fx{background:var(--k-fx);border-style:dashed}.box.data{background:var(--k-data);border-style:dashed}
+.box.overlay{background:var(--k-overlay);border-style:dashed}.box.grid{background:var(--k-grid);border-style:dashed}.box.dragon{background:var(--k-dragon)}
+.box.banner{background:var(--k-banner)}
+.box.der{border-style:dashed;border-color:#e0a44a99}
+.box.zone{background:transparent;border:1px dashed #3a4658}
+.zonelabel{position:absolute;font-size:9px;color:#8696ad;padding:1px 4px;background:rgba(7,10,15,.6);border-radius:2px;right:3px;top:50%;transform:translateY(-50%);white-space:nowrap}
+details{margin:14px 0;border:1px solid var(--bd);border-radius:6px;background:var(--card)}
+summary{cursor:pointer;padding:10px 14px;font-weight:600;font-size:14px}
+details .body{padding:0 16px 14px;font-size:12.5px;color:#c2ccdb}
+code{background:#0a0e15;padding:1px 4px;border-radius:3px;color:#8fd0a0;font-size:11.5px}
+</style>
+</head>
+<body>
+<header>
+  <h1>ss03「Mahjong Streak / 麻将连莊」— UI 灰盒稿（逆向·<span style="color:var(--acc)">Unity</span> · 1.0.0-56）</h1>
+  <div class="sub">坐标=<b>UnityPy 解 data.unity3d → compose-layout.py 合成屏幕 px</b>(帧 1080×1920, top-left)，全部回源自构建。三件套：<b>ADD</b>/<b>GDD</b>/<b>本 HTML</b></div>
+  <div class="sub" style="margin-top:4px"><b>extracted</b>=构建 RectTransform 合成 px / 导出资产；<b>derived</b>=世界空间 runtime 装配 or 布局组运行时排布(非静态构建 px)；<b>validated</b>=真机截图核过(本轮无截图)。<b>会话数值一律占位 &lt;…&gt;。</b></div>
+  <div class="legend">
+    <span><i class="swatch" style="background:var(--k-grid);border-style:dashed"></i>reel</span>
+    <span><i class="swatch" style="background:var(--k-chrome)"></i>HUD/chrome</span>
+    <span><i class="swatch" style="background:var(--k-banner)"></i>combo banner</span>
+    <span><i class="swatch" style="background:var(--k-overlay);border-style:dashed"></i>overlay/scene</span>
+    <span><span class="badge validated">validated</span>截图核过</span>
+    <span><span class="badge extracted">extracted</span>构建px/资产</span>
+    <span><span class="badge derived">derived</span>runtime/布局组</span>
+  </div>
+  <div class="controls">
+    <label><input type="checkbox" id="showZones" checked> 显示分区线</label>
+    <label><input type="checkbox" id="showDims" checked> 显示尺寸标注</label>
+  </div>
+</header>
+<main>
+
+  <h2 class="gallery">① 主玩法屏（screens）— Base / Free / Pity-Free</h2>
+  <p class="gallery-note"><b>HUD 全控件 = Canvas_PlayerHUD 合成 px(extracted)</b>：底部 ⚙设置[62,1668]·bet[246,1668]·<b>SPIN</b>[420,1594,240]·auto[742,1668]·turbo[926,1668]；余额[30,1492,480×84]、WIN[570,1492,480×84]、SPIN 底座 PanelBG[240,1404,600×260]。<b>转轮 4-5-5-5-4 = ScenarioGrid RectTransform(extracted)</b>：单元格 184×224、列距 184(无缝)、行距 204、外列垂直居中。<b>连击倍率 = 4 槽 175×140 @x=[116,340,564,788](ScenarioMutiplierDisplay 实测几何)，挂在转轮框【顶栏 TopFence】上、直接位于牌网上方(world-space MatchComboDisplay，屏幕 y 为 derived)，背景=顶栏横幅 Frame_TopFence</b>，当前档 LightSlot+Aura 点亮。<b>本轮赢分横幅 MessageBanner[20,1288,1040×140]=Canvas_SlotMachineInterface(extracted)</b>。盘龙(Spine)绕框，world-space(derived)。<b>主玩法屏无 tab 栏</b>(TabList 属菜单叠层，见 ②)。</p>
+  <div class="grid" id="galMain"></div>
+
+  <h2 class="gallery">② 菜单叠层（screen）— Canvas_GameSetting_Vertical（⚙ 打开）</h2>
+  <p class="gallery-note"><b>关键:这是【一块 Canvas + 底部 TabList 切换内容】,不是多个独立屏。</b> `TabList`=底栏 [0,1728,1080,192]，5 tab(顺序 <b>返回·设置·赔付(Guide)·历史·退出</b>，构建 TabList 子节点实证；单 tab 宽=HorizontalLayoutGroup 运行时均分,derived)。内容区 [0,0,1080,1728] 随 tab 切 <code>SettingPanel</code>/<code>GuidePanel</code>/<code>BetPanel(历史)</code>。设置=构建实测 px；「赔付(Guide)」tab 打开的是可滚长纸 GuidePaperDisplay→见 ④ 场景。</p>
+  <div class="grid" id="galMenu"></div>
+
+  <h2 class="gallery">③ 入场 / 中奖庆祝 / 弹窗（screens / overlay）</h2>
+  <p class="gallery-note">入场 GameEntry(宿主 React 壳)/大奖=演出(world+runtime, derived)；弹窗=Warning/Toast/Reconnecting Canvas 实测 px。中奖三级：大奖→巨奖→超级巨奖。</p>
+  <div class="grid" id="galMisc"></div>
+
+  <h2 class="gallery">④ 场景（scenes，超屏可滚，位于某 tab 内）</h2>
+  <p class="gallery-note"><b>代码里这些是【滚动内容,高度远超视口】,与"屏"分开</b>：<b>赔付/规则长纸</b> GuidePaperDisplay(972 宽，SymbolOdds→GameRules→GameUI×5→AdditionalInfo)；<b>单注详情 BillDetailPage</b> ScrollContents(每次 cascade 一段:倍率 4 槽 + 4-5-5-5-4 grid)；<b>reel strip 全条</b>(转轮序列远长于可见窗,二进制未解密)。</p>
+  <div class="grid" id="galScene"></div>
+
+  <h2 class="gallery">⑤ 符号集（extracted 资产 · 原生 184×224）</h2>
+  <p class="gallery-note">9 普通牌 white+gold 两态 + 元宝 Wild + 胡 Scatter。赔率=GDD §3.2(symbol.json 直读)。金牌仅中 3 列、中奖转 Wild。</p>
+  <div class="grid" id="galSym"></div>
+
+  <details open>
+    <summary>⑥ 注释 — 屏 vs 场景（代码结构）/ 连击 / 来源 / 占位</summary>
+    <div class="body">
+      <ul>
+        <li><b>★ 屏(screens) vs 场景(scenes) — 按代码结构分</b>：<br>
+          &nbsp;• <b>屏 = Canvas</b>：主玩法(Base/Free/Pity 换皮，同一套 Canvas_PlayerHUD + Canvas_SlotMachineInterface)、<b>菜单叠层(Canvas_GameSetting_Vertical)</b>；宿主 React 壳另有 Loading/Maintenance/GameEntry/Warning/Exit。<br>
+          &nbsp;• <b>菜单不是多个屏</b>：设置/赔付/历史是 <code>Canvas_GameSetting_Vertical</code> 里 <code>TabList</code>(返回·设置·赔付·历史·退出)切换 <code>ContensPanel</code> 的 <b>tab 面板</b>(SettingPanel/GuidePanel/BetPanel)。<br>
+          &nbsp;• <b>场景 = 某 tab 内的可滚长内容</b>：赔付长纸 <code>GuidePaperDisplay</code>、单注详情 <code>BillDetailPage/ScrollContents</code>；以及游戏内 reel strip 全条。这些高度远超 1080×1920 视口。</li>
+        <li><b>连击倍率(cascade streak)</b>：世界空间 <code>MatchComboDisplay</code> 挂在 <code>SlotMachine/Decorations/FrameFence/TopFence</code>(转轮框顶栏)，<b>直接位于牌网上方</b>，非屏幕顶部悬浮条。形态=一排 <b>4 个方槽 175×140</b>(x=[116,340,564,788]，pitch 224，ScenarioMutiplierDisplay 实测)，当前档 <code>LightSlot+Aura+LightImage</code> 点亮；背景=顶栏横幅 <code>Frame_TopFence</code>(1080×340)。Base 槽 x1/x2/x3/x5、Free x2/x4/x6/x10(GDD §2)。</li>
+        <li><b>HUD 坐标</b>：Canvas_PlayerHUD 合成 px。底栏圆钮各 92×92(底座 100×100)：gear[62,1668]、bet[246,1668]、SPIN Visual[420,1594,240](AutoCount_TMP)、auto[742,1668]、turbo/PlaySpeedToggle[926,1668]；上排 余额[30,1492,480]/WIN[570,1492,480]；SPIN 底座 PanelBG[240,1404,600×260]。Free 模式 FreeGamePanel[0,1315,1080,605]+剩余转数 FreeSpin_RemaingCount[567,1416]。</li>
+        <li><b>转轮 4-5-5-5-4(ScenarioGrid 实测)</b>：5 列 x=[80,264,448,632,816](列距 184，单元格 184×224 无缝)；中 3 列 5 格、外 2 列 4 格且垂直居中；行距 204。ways=2000(GDD §3.1)。</li>
+        <li><b>赔付长纸 GuidePaperDisplay(972 宽)</b>：First Symbol 特写行(Symbol 140×160 + Odds 230×150) + Symbol Odds 行(Symbol 120 + Odds 230)×(9 牌+wild+scatter) + 规则段(PayoutDesc / 图文 Sec2-3 / 胡 Hu×3 Sec4 / Sec5)。赔率值=server symbol.json。</li>
+        <li><b>朝向</b>：主体竖屏 1080×1920；横屏=同一 Canvas 响应式重锚+letterbox(catalog 无横屏包，derived)。</li>
+        <li><b>占位</b>：余额/赢分/大奖/注额/自动次数/订单号=运行时下发，一律 &lt;占位&gt;。</li>
+      </ul>
+    </div>
+  </details>
+</main>
+<script>
+// ===== HUD (Canvas_PlayerHUD 合成 px) =====
+const HUD=(free)=>free?[
+  {x:0,y:1315,w:1080,h:605,k:'bg',role:'FreeGamePanel',z:1,label:'FreeGamePanel 区',sub:'[0,1315,1080,605]'},
+  {x:54,y:1416,w:929,h:320,k:'feat',role:'freespin remain',z:5,label:'免费剩余转数 <n>',sub:'FreeSpin_RemaingCount[567,1416]+Label'},
+  {x:27,y:1736,w:162,h:84,k:'chrome',role:'turbo(free)',z:6,label:'⚡ turbo',sub:'FreeGameHUD/SpeedPanel[27,1736]'},
+  {x:30,y:1492,w:480,h:84,k:'chrome',role:'balance',z:6,label:'💰 <balance>',sub:'[30,1492,480,84]'},
+  {x:570,y:1492,w:480,h:84,k:'chrome',role:'profit/win',z:6,label:'WIN <win>',sub:'[570,1492,480,84]'},
+]:[
+  {x:0,y:1315,w:1080,h:605,k:'bg',role:'PlayerHUD',z:1,label:'PlayerHUD 区',sub:'[0,1315,1080,605]'},
+  {x:240,y:1404,w:600,h:260,k:'chrome',role:'PanelBG',z:2,label:'SPIN 底座 PanelBG',sub:'[240,1404,600,260]·居中'},
+  {x:30,y:1492,w:480,h:84,k:'chrome',role:'balance',z:6,label:'💰 余额 <balance>',sub:'[30,1492,480,84]·Icon+TMP'},
+  {x:570,y:1492,w:480,h:84,k:'chrome',role:'profit/win',z:6,label:'WIN <win>',sub:'[570,1492,480,84]·ProfitPanel'},
+  {x:62,y:1668,w:92,h:92,k:'chrome',role:'settings btn',asset:'Icon_Setting',z:6,label:'⚙ 设置(开菜单)',sub:'SettingButton[62,1668,92]'},
+  {x:246,y:1668,w:92,h:92,k:'chrome',role:'bet btn',z:6,label:'bet <amt>',sub:'BetButton[246,1668]·BetAmount_TMP'},
+  {x:420,y:1594,w:240,h:240,k:'feat',role:'spin button',asset:'PlayerHUD_PlayBtn_Frame',z:7,label:'SPIN(自动显次数)',sub:'Visual[420,1594,240]·AutoCount_TMP'},
+  {x:742,y:1668,w:92,h:92,k:'chrome',role:'auto btn',asset:'Icon_Auto',z:6,label:'⟳ 自动',sub:'AutoButton[742,1668,92]'},
+  {x:926,y:1668,w:92,h:92,k:'chrome',role:'turbo btn',asset:'Icon_Turbo',z:6,label:'⚡ 加速',sub:'SpeedPanel/PlaySpeedToggle[926,1668]'},
+];
+// ===== reels (4-5-5-5-4, ScenarioGrid RectTransform 实测) =====
+const RCELL=[];(function(){
+  var cols=[80,264,448,632,816], cw=184, ch=224;
+  var y5=[330,534,738,942,1146], y4=[432,636,840,1044];   // 中3列5格 / 外2列4格(内缩102=半行距居中)
+  for(var c=0;c<5;c++){var mid=(c>=1&&c<=3),ys=mid?y5:y4;
+    for(var r=0;r<ys.length;r++)RCELL.push({x:cols[c],y:ys[r],w:cw,h:ch,k:'grid',role:'reel cell',z:3,
+      label:(r===0)?('Reel_'+(c+1)+(mid?' ·5':' ·4')):'',
+      sub:(c===0&&r===0)?'4-5-5-5-4·单元格184×224·列距184·行距204·外列居中(ScenarioGrid 实测)':''});}
+})();
+const FRAME={x:52,y:300,w:976,h:1090,k:'grid',role:'reel frame',asset:'Frame_Top/BottomFence',z:1,label:'转轮框 Frame_TopFence(1080×340)+BottomFence',sub:'world-space·包住 920×1020 错列块(屏幕 px 估算 derived)'};
+// 连击倍率横幅: 顶栏 Frame_TopFence 背景 + 4 槽(ScenarioMutiplierDisplay 实测 x=[116,340,564,788],175×140)
+const COMBO=(vals,mode,active)=>{
+  const bg={x:0,y:150,w:1080,h:180,k:'banner',role:'combo banner',asset:'Frame_TopFence',z:5,label:'连击倍率横幅(顶栏 Frame_TopFence 上)',sub:'MatchComboDisplay 挂 TopFence·牌网正上方(world→屏幕y derived)'};
+  const xs=[116,340,564,788];
+  const slots=vals.map((v,i)=>({x:xs[i],y:158,w:175,h:140,k:'feat',role:'combo slot '+v,z:6,label:v+(i===active?' ◀当前':''),
+    sub:(i===0)?('4 槽 175×140·x=[116,340,564,788]·Combo_'+mode+'_*·当前 LightSlot+Aura 点亮'):''}));
+  return [bg,...slots];
+};
+const DRAGONL={x:8,y:280,w:140,h:340,k:'dragon',role:'dragon L',asset:'dragon(133×699)',z:9,label:'左盘龙',sub:'Spine dragon·框外(world·derived)'};
+const DRAGONR={x:932,y:280,w:140,h:340,k:'dragon',role:'dragon R',asset:'dragon(133×699)',z:9,label:'右盘龙',sub:'Spine dragon·框外(world·derived)'};
+const WINBANNER={x:20,y:1288,w:1040,h:140,k:'data',role:'win banner',z:8,label:'本轮赢分横幅 Win <win>',sub:'MessageBanner[20,1288,1040×140]·SlotMachineInterface 实测'};
+const MAIN=[
+  {id:'base',cap:'Base Game 主玩法',badge:'extracted',meta:'转轮 4-5-5-5-4 + HUD + 赢分横幅 = 构建合成 px;连击 4 槽几何=ScenarioMutiplierDisplay 实测(挂顶栏,屏幕y derived);盘龙/框=world 估算。连击 x1→x5',
+   layers:[{x:0,y:0,w:1080,h:1920,k:'bg',role:'scenic bg',asset:'Background_BaseGame',z:0,label:'场景背景 Background_BaseGame',sub:'翡翠绿+金币/麻将/元宝堆(全屏·Bg_1/Block/Bg_MaskFrame)'},
+     {x:80,y:300,w:920,h:1020,k:'bg',role:'reel panel',asset:'Back_BaseGame',z:1,label:'转轮底板 Back_BaseGame(FrameBG)',sub:'红底板·牌网后·+Back_BaseGame_Top/BottomTexture 延展'},
+     FRAME,...RCELL,...COMBO(['x1','x2','x3','x5'],'Base',0),DRAGONL,DRAGONR,WINBANNER,...HUD(false)]},
+  {id:'free',cap:'Free Game 免费玩法',badge:'extracted',meta:'换皮 Back_FreeGame;同 4-5-5-5-4 转轮;HUD 变体(免费剩余转数+turbo/余额/WIN);连击梯更高 x2→x10;金满列+盘龙',
+   layers:[{x:0,y:0,w:1080,h:1920,k:'bg',role:'scenic bg',asset:'Background_BaseGame',z:0,label:'场景背景(共用/运行时着色)',sub:'Background_BaseGame(Free 无独立场景包→derived)'},
+     {x:80,y:300,w:920,h:1020,k:'bg',role:'reel panel',asset:'Back_FreeGame',z:1,label:'转轮底板 Back_FreeGame(FrameBG)',sub:'金底板·牌网后·+Free Top/BottomTexture'},
+     FRAME,...RCELL,...COMBO(['x2','x4','x6','x10'],'Free',0),DRAGONL,DRAGONR,WINBANNER,...HUD(true)]},
+  {id:'pity',cap:'Pity / Incentive Free(保底免费)',badge:'extracted',meta:'1.0.0-56 仍含;换皮 Back_PityFreeGame + Frame_*_Pity + Combo_PityFree_x2/4/6/10。触发=服务端 IncentiveService(Redis)',
+   layers:[{x:0,y:0,w:1080,h:1920,k:'bg',role:'scenic bg',asset:'Background_BaseGame',z:0,label:'场景背景(共用/运行时着色)',sub:'Background_BaseGame(Pity 无独立场景包→derived)'},
+     {x:80,y:300,w:920,h:1020,k:'bg',role:'reel panel',asset:'Back_PityFreeGame',z:1,label:'转轮底板 Back_PityFreeGame(FrameBG)',sub:'保底底板·牌网后·+Pity Top/BottomTexture'},
+     FRAME,...RCELL,...COMBO(['x2','x4','x6','x10'],'Free',0),DRAGONL,DRAGONR,WINBANNER,...HUD(true)]},
+];
+// ===== 菜单叠层 Canvas_GameSetting_Vertical: 内容区[0,0,1080,1728] + TabList底栏[0,1728,1080,192] =====
+const TABBAR=(active)=>{
+  const names=['返回','设置','赔付','历史','退出'];  // TabList 子: BackBtn·Setting·Guide·History·Exit
+  const cw=1080/5;
+  const bar=[{x:0,y:1728,w:1080,h:192,k:'chrome',role:'TabList',z:20,label:'TabList 底栏',sub:'[0,1728,1080,192]·5 tab·单 tab 宽=布局组运行时均分(derived)'}];
+  names.forEach((n,i)=>bar.push({x:Math.round(i*cw),y:1740,w:Math.round(cw)-6,h:168,k:(i===active?'feat':'chrome'),role:'tab '+n,z:21,label:n+(i===active?' ◀':''),sub:''}));
+  return bar;
+};
+const MENU=[
+  {id:'settingtab',cap:'菜单·设置 tab (SettingPanel)',badge:'extracted',meta:'内容=SettingContent 合成 px:Sound(BGM/SFX 各一排开关)+Language 选择器+ImageQuality;底 TabList 5 tab(设置 active)',layers:[
+    {x:0,y:0,w:1080,h:1920,k:'bg',role:'setting bg',asset:'SettingUI_Background',z:0,label:'设置底 SettingUI_Background',sub:'[0,0,1080,1920]'},
+    {x:0,y:0,w:1080,h:1728,k:'overlay',role:'content area',z:1,label:'ContensPanel 内容区',sub:'[0,0,1080,1728]'},
+    {x:58,y:43,w:964,h:120,k:'chrome',role:'sound header',z:5,label:'声音 Sound(区头)',sub:'Header[58,43,964,120]'},
+    {x:58,y:157,w:337,h:107,k:'chrome',role:'bgm title',z:5,label:'背景音乐 BGM',sub:'Title[58,157,337,107]'},
+    {x:558,y:183,w:144,h:53,k:'feat',role:'bgm t1',z:6,label:'On',sub:'Item1[558,183,144×53]'},
+    {x:711,y:183,w:144,h:53,k:'feat',role:'bgm t2',z:6,label:'—',sub:'Item2[711,183]'},
+    {x:865,y:183,w:144,h:53,k:'feat',role:'bgm t3',z:6,label:'Off',sub:'Item3[865,183]'},
+    {x:58,y:263,w:337,h:107,k:'chrome',role:'sfx title',z:5,label:'音效 SFX',sub:'Title[58,263,337,107]'},
+    {x:558,y:290,w:144,h:53,k:'feat',role:'sfx t1',z:6,label:'On',sub:'Item1[558,290]'},
+    {x:711,y:290,w:144,h:53,k:'feat',role:'sfx t2',z:6,label:'Off',sub:'Item2[711,290]'},
+    {x:58,y:450,w:964,h:120,k:'chrome',role:'lang header',z:5,label:'语言 Language(区头)',sub:'Header[58,450,964,120]'},
+    {x:58,y:590,w:337,h:160,k:'chrome',role:'lang title',z:5,label:'选择语言',sub:'Title[58,590,337,160]'},
+    {x:442,y:622,w:548,h:96,k:'feat',role:'lang select',z:6,label:'当前语言 ▼ (9 语)',sub:'ButtonContainer[442,622,548×96]'},
+    {x:58,y:810,w:964,h:120,k:'chrome',role:'quality header',z:5,label:'画质 ImageQuality(区头)',sub:'Header[58,810,964,120]'},
+    {x:510,y:1022,w:480,h:80,k:'feat',role:'quality opts',z:6,label:'Low / Mid / High',sub:'SelectImageQuality'},
+    ...TABBAR(1)]},
+  {id:'historytab',cap:'菜单·历史 tab (BetPanel)',badge:'derived',meta:'BetPanel:日期筛选 Tabs[0,?,1080,138](Today/Week/3Day…)+统计+注单行(BetItem_Vertical);数值占位。底 TabList(历史 active)',layers:[
+    {x:0,y:0,w:1080,h:1920,k:'bg',role:'history bg',z:0,label:'历史底',sub:''},
+    {x:0,y:0,w:1080,h:1728,k:'overlay',role:'content area',z:1,label:'ContensPanel 内容区',sub:'[0,0,1080,1728]'},
+    {x:0,y:60,w:1080,h:138,k:'chrome',role:'date tabs',z:5,label:'Today / Week / 3Day … (日期筛选)',sub:'Tabs[…,1080,138]·derived'},
+    ...['Bet Count','Total Bet','Total Profit'].map((t,i)=>({x:40+i*340,y:230,w:320,h:110,k:'chrome',role:'stat',z:5,label:t+' <n>',sub:'derived'})),
+    ...[0,1,2,3,4].map(i=>({x:40,y:380+i*150,w:1000,h:138,k:'data',role:'bill row',z:4,label:i===0?'注单行:状态/Profit<p>/Win<w>/Bet<b>/订单号/时间':'',sub:'BetItem_Vertical·点开→单注详情(场景④)'})),
+    ...TABBAR(3)]},
+];
+// ===== 入场/大奖/弹窗 =====
+const MISC=[
+  {id:'entry',cap:'入场 GameEntry(宿主 React 壳)',badge:'derived',meta:'logo(MAHJONG STREAK+金龙)+麻将牌塔+百搭元宝+Start 钮。宿主侧,非 Unity Canvas',layers:[
+    {x:0,y:0,w:1080,h:1920,k:'bg',role:'entry bg',asset:'GameEntry_Background',z:0,label:'入场背景',sub:''},
+    {x:284,y:60,w:512,h:450,k:'hero',role:'logo',asset:'GameEntry_Title',z:5,label:'MAHJONG STREAK + 金龙',sub:'512×450'},
+    {x:330,y:520,w:420,h:740,k:'hero',role:'tile pyramid',z:4,label:'麻将牌塔 + 百搭元宝',sub:'derived'},
+    {x:230,y:1330,w:620,h:136,k:'feat',role:'start',asset:'start_button',z:6,label:'Start Game',sub:'start_button 620×136'}]},
+  {id:'bigwin',cap:'中奖庆祝 大奖/巨奖/超级巨奖',badge:'derived',meta:'金币爆+标题(大奖→巨奖→超级巨奖)+金额滚动+盘龙。阈值/演出 derived,数值占位',layers:[
+    {x:0,y:0,w:1080,h:1920,k:'overlay',role:'glow',z:40,label:'金光全屏 bigwin_pattern',sub:''},
+    {x:240,y:380,w:600,h:420,k:'hero',role:'coin burst',asset:'coin/ss03coin',z:42,label:'金币爆 + 麻将堆',sub:'super_image 675×477'},
+    {x:340,y:780,w:400,h:160,k:'hero',role:'win title',asset:'win_big/mega/super_title',z:43,label:'大奖 / 巨奖 / 超级巨奖',sub:''},
+    {x:300,y:960,w:480,h:200,k:'hero',role:'amount',z:43,label:'<amount> 金额滚动',sub:'DigitNumber 占位'}]},
+  {id:'popups',cap:'弹窗 Reconnect/Toast/Warning',badge:'extracted',meta:'合成 px。Toast[60,1600,960×160]底部·Warning[60,680,960×560]居中·Reconnecting 同 Toast+遮罩 HUD',layers:[
+    {x:0,y:0,w:1080,h:1920,k:'overlay',role:'dim',z:50,label:'遮罩 Background',sub:''},
+    {x:60,y:680,w:960,h:560,k:'chrome',role:'warning',z:51,label:'WarningPopup',sub:'BG[60,680,960×560]'},
+    {x:290,y:720,w:500,h:120,k:'chrome',role:'warn title',z:52,label:'Title',sub:'[290,720,500×120]'},
+    {x:369,y:1094,w:342,h:92,k:'feat',role:'warn btn',z:52,label:'确认',sub:'Button[369,1094,342×92]'},
+    {x:60,y:1600,w:960,h:160,k:'chrome',role:'toast',z:52,label:'Toast / Reconnecting',sub:'BG[60,1600,960×160]'}]},
+];
+const SYMS=[
+  ['發 GreenDragon','3|4|5 = 10/25/50 (最高)','Symbol_0_fa_white'],['中 RedDragon','8/20/40','Symbol_1_hongzhong_white'],['白板 WhiteDragon','6/15/30','Symbol_2_bai_white'],
+  ['八萬 bawan','5/10/15','Symbol_3_bawan_white'],['五筒 wutong','3/5/12','Symbol_4_wutong_white'],['五条 wutiao','3/5/12','Symbol_5_wutiao_white'],
+  ['三筒 santong','2/4/10','Symbol_6_santong_white'],['二筒 ertong','1/3/6','Symbol_7_ertong_white'],['二条 ertiao','1/3/6','Symbol_8_ertiao_white'],
+  ['元宝 Wild','替代除 Scatter 外全部','Symbol_Wild'],['胡 Scatter','≥3 触发免费(给10-18转)','Symbol_Scatter_Hu'],['金牌 Gold','仅中3列·中奖转Wild','Symbol_0_fa_gold'],
+];
+// ===== 场景(scenes, 滚动高 > 视口) =====
+const SCENE=[
+  {id:'paytable',cap:'赔付/规则长纸 GuidePaperDisplay(scroll)',badge:'extracted',meta:'972 宽可滚。First Symbol 特写(Symbol140×160+Odds230)+Symbol Odds 行(Symbol120+Odds230)×(9牌+wild+scatter)+规则段(PayoutDesc/图文/胡Hu×3/…)。赔率=server symbol.json',fh:2200,layers:[
+    {x:54,y:0,w:972,h:2200,k:'overlay',role:'paper',z:0,label:'GuidePaperDisplay(972 宽)',sub:'PaperSection_SymbolOdds→GameRules→GameUI×5→AdditionalInfo'},
+    {x:80,y:40,w:360,h:70,k:'chrome',role:'title',z:5,label:'符号赔率',sub:'SectionTitleLine 360×10'},
+    {x:80,y:130,w:920,h:200,k:'feat',role:'first symbol',asset:'Symbol_0_fa',z:5,label:'發 特写 · 5|4|3 = 50/25/10',sub:'First Symbol:Symbol 140×160 + Odds 230×150'},
+    ...['中 40/20/8','白板 30/15/6','八萬 15/10/5','五筒 12/5/3','五条 12/5/3','三筒 10/4/2','二筒 6/3/1','二条 6/3/1','元宝 Wild(百搭)','胡 Scatter(触发免费)'].map((t,i)=>(
+      {x:80,y:360+i*120,w:920,h:104,k:'data',role:'symbol odds',z:3,label:t,sub:i===0?'Symbol Odds 行:Symbol 120 + Odds 230':''})),
+    {x:80,y:1580,w:920,h:180,k:'chrome',role:'payout desc',z:4,label:'派彩说明 Sec1_PayoutDesc',sub:'×bet×ways×0.05×倍率'},
+    {x:80,y:1780,w:920,h:180,k:'chrome',role:'rule sec',z:4,label:'规则图文 Sec2/Sec3(金牌/2000ways)',sub:'Sec2_Image/Text·Sec3_Image/Text'},
+    {x:80,y:1980,w:920,h:180,k:'feat',role:'hu sec',z:4,label:'胡 Hu 说明(Hu×3)',sub:'Sec4_Image(Hu,Hu,Hu)+Text'}]},
+  {id:'billdetail',cap:'单注详情 BillDetailPage(scroll)',badge:'extracted',meta:'TitlePanel[0,0,1080,161]+返回[87,33,96]+Summary 上[0,161]/下[0,311]+可滚 ScrollContents:每次 cascade 一段(倍率4槽+4-5-5-5-4 grid)',fh:2400,layers:[
+    {x:0,y:0,w:1080,h:2400,k:'overlay',role:'bg',z:0,label:'详情底 Bg',sub:''},
+    {x:0,y:0,w:1080,h:161,k:'chrome',role:'TitlePanel',z:5,label:'标题栏',sub:'[0,0,1080,161]'},
+    {x:87,y:33,w:96,h:96,k:'feat',role:'back',z:6,label:'返回',sub:'Button_Back_Icon[87,33,96]'},
+    {x:0,y:161,w:1080,h:149,k:'data',role:'summary upper',z:4,label:'BillId / Bet / Profit',sub:'SummaryPanel_Upper[0,161,1080,149]'},
+    {x:0,y:311,w:1080,h:149,k:'data',role:'summary lower',z:4,label:'Payout / Balance / Username',sub:'SummaryPanel_Lower[0,311,1080,149]'},
+    {x:54,y:161,w:972,h:2,k:'chrome',role:'divider',z:5,label:'',sub:'DivisionLine'},
+    ...[0,1].map(s=>{const y0=500+s*920;return [
+      {x:60,y:y0,w:960,h:100,k:'chrome',role:'scenario head',z:3,label:'cascade '+s+' · Round/Bet/BetLevel',sub:s===0?'ScenarioHeader':''},
+      ...[116,340,564,788].map((x,i)=>({x:60+x*0.83,y:y0+120,w:145,h:116,k:'feat',role:'mult slot',z:4,label:['x1','x2','x3','x5'][i],sub:i===0?'ScenarioMutiplierDisplay 4槽(此段倍率)':''})),
+      {x:80,y:y0+260,w:920,h:560,k:'grid',role:'scenario grid',z:3,label:'ScenarioGrid 4-5-5-5-4(此段落牌)',sub:'Reel_1..5/SymbolCell_*'}];}).flat()]},
+  {id:'reelstrip',cap:'Reel strip 全条(转轮序列)',badge:'derived',meta:'序列远长于可见 4-5 行;二进制 base.script/free.script(server,未解密)。可见窗只是长条上停的 4-5 格',fh:1400,layers:[
+    {x:0,y:0,w:1080,h:1400,k:'overlay',role:'strips',z:0,label:'5 条 reel strip',sub:''},
+    ...[80,264,448,632,816].map((x,c)=>({x:x,y:40,w:184,h:1320,k:'grid',role:'strip'+c,z:2,label:'Reel_'+(c+1),sub:c===0?'整条序列(未解密)':''})),
+    {x:60,y:560,w:960,h:460,k:'feat',role:'window',z:5,label:'可见窗 4-5-5-5-4(GridStop[] 决定停位)',sub:''}]},
+];
+function mkBox(b,s){const d=document.createElement('div');d.className='box '+b.k+(b.sub&&b.sub.includes('derived')?' der':'');
+  d.style.left=(b.x*s)+'px';d.style.top=(b.y*s)+'px';d.style.width=(b.w*s)+'px';d.style.height=(b.h*s)+'px';d.style.zIndex=b.z||1;
+  d.dataset.box=[b.x,b.y,b.w,b.h].join(',');d.dataset.role=b.role||'';if(b.asset)d.dataset.asset=b.asset;
+  d.title=(b.role||'')+(b.asset?' · '+b.asset:'')+' · '+(b.label||'')+' · ['+[b.x,b.y,b.w,b.h].join(',')+']';
+  if(b.label){const l=document.createElement('div');l.className='bl';l.textContent=b.label;d.appendChild(l);}
+  if(b.sub){const x=document.createElement('div');x.className='bd dims';x.textContent=b.sub;d.appendChild(x);}return d;}
+function renderCards(root,cards,fh){const W=300,s=W/1080,r=document.getElementById(root);
+  cards.forEach(c=>{const H=(c.fh||fh||1920)*s;const card=document.createElement('div');card.className='frame';
+    card.innerHTML='<div class="cap">'+c.cap+'<span class="badge '+c.badge+'">'+c.badge+'</span></div><div class="meta">'+c.meta+'</div>';
+    const st=document.createElement('div');st.className='stage';st.style.width=W+'px';st.style.height=H+'px';
+    (c.layers||[]).forEach(b=>{if(b&&b.w)st.appendChild(mkBox(b,s));});
+    card.appendChild(st);r.appendChild(card);});}
+function renderSyms(){const r=document.getElementById('galSym');SYMS.forEach(([n,cat,asset])=>{const card=document.createElement('div');card.className='frame';
+  card.innerHTML='<div class="cap">'+n+'<span class="badge extracted">extracted</span></div><div class="meta">'+cat+' · «'+asset+'»</div>';
+  const st=document.createElement('div');st.className='stage';st.style.width='110px';st.style.height='134px';
+  st.appendChild(mkBox({x:0,y:0,w:184,h:224,k:'data',role:'symbol',asset,z:1,label:n.split(' ')[0],sub:''},110/184));
+  card.appendChild(st);r.appendChild(card);});}
+// 场景=可滚超屏(高>视口),标 offscreen 以示"故意越出视口"(greybox-check allowOff)
+SCENE.forEach(c=>c.layers.forEach(b=>{if(b)b.role=(b.role||'')+' offscreen';}));
+renderCards('galMain',MAIN);renderCards('galMenu',MENU);renderCards('galMisc',MISC);renderCards('galScene',SCENE);renderSyms();
+document.getElementById('showZones').addEventListener('change',e=>document.querySelectorAll('.zone').forEach(z=>z.style.display=e.target.checked?'':'none'));
+document.getElementById('showDims').addEventListener('change',e=>document.querySelectorAll('.dims').forEach(z=>z.style.display=e.target.checked?'':'none'));
+</script>
+</body>
+</html>

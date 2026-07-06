@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>cg03r「Cluck Dash 小鸡狂奔」UI 灰盒稿 (逆向)</title>
+<!--
+  三件套之一（配套 ART-AUDIO-CG03R.md / GDD-CG03R.md）。数据驱动：SCREENS(1080×1920 视口帧)+SCENES(横向车道长卷)。
+  坐标=1080×1920 画布绝对 px（源码实测）。纯灰盒。来源：crashgame-cg03r-ui/cg03/src 穷尽抽取 + 资产视觉审查。
+  ⚠ cg03r 暂无真机截图：所有帧 badge=code-derived（几何对固定画布为代码权威，待截图升级 validated）。
+-->
+<style>
+:root{--bg:#0c1018;--card:#141a24;--bd:#283242;--fg:#cdd6e2;--mut:#7d8aa0;--acc:#6db3f2;
+--k-bg:#23303f;--k-chrome:#2c3340;--k-feat:#26402c;--k-hero:#3c3414;--k-fx:#2e2440;--k-data:#163040;--k-overlay:#3a1f2e;}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.5 -apple-system,"PingFang SC","Segoe UI",sans-serif}
+header{padding:18px 24px;border-bottom:1px solid var(--bd);position:sticky;top:0;background:var(--bg);z-index:50}
+h1{margin:0 0 4px;font-size:20px}.sub{color:var(--mut);font-size:12px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:11px;color:var(--mut)}
+.legend span{display:inline-flex;align-items:center;gap:5px}.swatch{width:12px;height:12px;border-radius:2px;border:1px solid var(--bd);display:inline-block}
+.controls{margin-top:10px;font-size:12px}.controls label{margin-right:16px;cursor:pointer;color:var(--fg)}
+main{padding:22px}h2.gallery{font-size:16px;margin:30px 0 6px;border-left:3px solid var(--acc);padding-left:10px}
+.gallery-note{color:var(--mut);font-size:12px;margin:0 0 16px;max-width:1000px}
+.grid{display:flex;flex-wrap:wrap;gap:26px;align-items:flex-start}
+.frame{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:10px}
+.frame .cap{font-size:12px;font-weight:600;margin-bottom:2px}.frame .meta{font-size:11px;color:var(--mut);margin-bottom:8px;max-width:300px}
+.frame .badge{display:inline-block;font-size:10px;padding:1px 6px;border-radius:3px;margin-left:6px;vertical-align:middle}
+.badge.validated{background:#14361f;color:#67d98a}.badge.derived{background:#3a2a12;color:#e0a44a}
+.stage{position:relative;background:#070a0f;border:1px solid #1c2430;overflow:hidden}
+.box{position:absolute;border:1px solid rgba(255,255,255,.28);overflow:hidden;display:flex;flex-direction:column}
+.box .bl{font-size:9px;line-height:1.15;padding:2px 3px;color:#e7edf5;text-shadow:0 1px 2px #000;font-weight:600}
+.box .bd{font-size:8px;line-height:1.1;padding:0 3px;color:#aebccf}
+.box.bg{background:var(--k-bg)}.box.chrome{background:var(--k-chrome)}.box.feat{background:var(--k-feat)}
+.box.hero{background:var(--k-hero)}.box.fx{background:var(--k-fx);border-style:dashed}.box.data{background:var(--k-data);border-style:dashed}.box.overlay{background:var(--k-overlay);border-style:dashed}
+.box.zone{background:transparent;border:1px dashed #3a4658}.zonelabel{position:absolute;font-size:9px;color:#5f7088;padding:2px}
+details{margin:14px 0;border:1px solid var(--bd);border-radius:6px;background:var(--card)}
+summary{cursor:pointer;padding:10px 14px;font-weight:600;font-size:14px}details .body{padding:0 16px 14px;font-size:12.5px;color:#c2ccdb}
+details table{border-collapse:collapse;width:100%;margin:8px 0;font-size:12px}details th,details td{border:1px solid var(--bd);padding:5px 8px;text-align:left;vertical-align:top}details th{background:#1a2130}
+code{background:#0a0e15;padding:1px 4px;border-radius:3px;color:#8fd0a0;font-size:11.5px}
+svg{position:absolute;left:0;top:0;pointer-events:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>cg03r「Cluck Dash / 小鸡狂奔」— UI 灰盒稿（逆向，1:1 复现参考）</h1>
+  <div class="sub">体素小鸡过马路 crash · 画布 1080×1920 竖屏 · 坐标=绝对 px(源码实测) · 三件套：<b>ADD</b>(资产)/<b>GDD</b>(玩法)/<b>本 HTML</b>(布局)</div>
+  <div class="legend">
+    <span><i class="swatch" style="background:var(--k-bg)"></i>bg/scene</span><span><i class="swatch" style="background:var(--k-chrome)"></i>chrome</span>
+    <span><i class="swatch" style="background:var(--k-feat)"></i>featured</span><span><i class="swatch" style="background:var(--k-hero)"></i>hero</span>
+    <span><i class="swatch" style="background:var(--k-fx);border-style:dashed"></i>fx/overlay</span>
+    <span><span class="badge derived">code-derived</span>代码推定·cg03r 暂无截图</span>
+  </div>
+  <div class="controls">
+    <label><input type="checkbox" id="showZones" checked> 显示分区线</label>
+    <label><input type="checkbox" id="showDims" checked> 显示尺寸/资产标注</label>
+  </div>
+</header>
+<main>
+  <h2 class="gallery">画廊 A — 屏（1080×1920 视口帧）</h2>
+  <p class="gallery-note">分区：<b>TopBar y0–131 / GameView y131–1188(h1057) / PlayerHUD y1051–1920(h869)</b>。PlayerHUD 与 GameView **重叠 137px(1051–1188)**——路面下沿透到 HUD 顶,无缝路-curb 过渡(ContentView 底色 #3B3C50)。bet↔cashout、selector 开合、overlay 均同版面原地切。横向车道见画廊 B。</p>
+  <div class="grid" id="galleryA"></div>
+
+  <h2 class="gallery">画廊 B — 横向车道长卷（4 难度共用，仅 lane 数不同）</h2>
+  <p class="gallery-note">与 cg03a 竖向 centerline 不同：cg03r 是<b>横向车道</b>——小鸡钉死屏幕 x=474、原地跳,整条路每跳 <code>-=316px</code> 左滚。tile_start(672) + tile_road_strip(316)×N + tile_end_superwin(1440)。每车道一个井盖(落脚+倍率站,落定翻金);车辆纵向横穿当 hazard。4 难度 lane 数：easy 28 / medium 22 / hard 18 / hardcore 14。</p>
+  <div class="grid" id="galleryB"></div>
+
+  <details open><summary>① 屏幕流 / UI 状态机（触发以 GDD 为准）</summary><div class="body"><table>
+    <tr><th>状态机</th><th>切换</th><th>视觉</th></tr>
+    <tr><td>总屏幕流</td><td>boot→loading→ready→game / exception；START 发 ENTER_GAME(解锁音频)</td><td>DOM 覆盖层 z9999 于 Pixi 之上</td></tr>
+    <tr><td>回合相位</td><td>betting→flying(逐道 hop)→crash | cashout(详见 GDD)</td><td>GameView 演出 + HUD 控件态</td></tr>
+    <tr><td>下注态 PlayState</td><td><b>bet ↔ cashout</b></td><td>bet=难度器+绿 PLACE BET；cashout=CASHOUT(黄)+GO(绿);betActionStack 内原地切</td></tr>
+    <tr><td>难度器</td><td>collapsed ↔ expanded</td><td>popup 向上 997×506 + chevron 切换</td></tr>
+    <tr><td>设置面板</td><td>closed↔open；tab setting/guide/history</td><td>全屏 z999；tab aura;页 swap</td></tr>
+  </table></div></details>
+
+  <details><summary>② 动画时长 / 缓动（HTML 为权威）</summary><div class="body"><table>
+    <tr><th>动画</th><th>时长/缓动</th></tr>
+    <tr><td>单道 hop</td><td>delay 0.2s + duration 0.4s(road -=316 左滚);GO 节流 0.6s(GO_THROTTLE_MS=600)</td></tr>
+    <tr><td>小鸡 spine</td><td>idle1 循环 / jump / land / die(碎玻璃) / win(+goldcoin 眼部脉冲)</td></tr>
+    <tr><td>井盖翻金</td><td>MANHOLE_FLIP_DELAY 0.55s 落定翻金;前方井盖预览 flip 0.6s</td></tr>
+    <tr><td>车辆</td><td>passing y-800→800 0.6s(prob0.8);safe -900→-550 0.5s(near-miss);barrier 弹起 0.2s back.out</td></tr>
+    <tr><td>撞车</td><td>红闪 ×2(0.08s 亮/0.18s 退);车撞 0.6s;die 0.65s</td></tr>
+    <tr><td>YOU WIN</td><td>scale 0→1 0.25s back.out(2)→呼吸 1↔1.20 0.35s yoyo;金额 count-up 0.4s</td></tr>
+    <tr><td>ultimate</td><td>cinematic hop 1.6s;landing pause 0.3s;banner 降到小鸡下方;烟花 + 金币雨(3s) + 彩带 + 升旗</td></tr>
+    <tr><td>弹窗</td><td>开 scale 0.6→1 0.25s back.out(2);关反向</td></tr>
+  </table></div></details>
+
+  <details><summary>③ 横向车道机制（详见画廊 B + GDD）</summary><div class="body"><ul>
+    <li><b>轴向横向</b>：小鸡钉死 abs(474,691)、312×312(pivot.y=156 脚对齐);路条每跳 <code>-=316px</code> 左滚,head 培养(x<-1212 cull)。</li>
+    <li><b>车道</b>：LANE_WIDTH_PX=316;每道一井盖(spine 205×195,显 x_k 54px,落定 turning-gold);前方井盖显预览赔率梯。</li>
+    <li><b>hazard</b>：passing vehicle 纵向横穿(y-800→800);safe vehicle 近身刹停(near-miss);路障弹起。撞车=车进小鸡道。</li>
+    <li><b>当前倍率横幅</b>：小鸡下方 abs(466,819) 188×116(青块),落定显、跳跃/撞车/cinematic 时隐。</li>
+    <li><b>累计 bonus 横幅</b>：右上 ContentView(931,973) 292×110,翻牌火花飞入。</li>
+  </ul></div></details>
+
+  <details><summary>④ 控件渲染约定（资产 origin 见 ADD §4）</summary><div class="body"><ul>
+    <li><b>ImageButton</b>：虽 ship idle/hover/pressed 三态 PNG,但运行时<b>只用 idle + tint 派生</b>(normal#E5E5E5/hover#FFF/pressed#CCC/disabled#7F7F7F);HudImageButton disabled 仅变 tint 不降 alpha。hover/pressed art 实为死件。</li>
+    <li><b>文字 runtime 叠</b>(LocalizedText 浮于 text-free 块);唯一烧字=logo(每语)。数字可走 <code>SpriteDigits</code>(atlas 切,11×50+2×25=600 宽) 或样式化 Text。</li>
+    <li><b>语义色</b>：PLACE BET/GO 绿、CASHOUT 黄、当前倍率横幅 青;蓝描边体素块。</li>
+  </ul></div></details>
+
+  <details><summary>⑤ 资产/差异注记</summary><div class="body"><ul>
+    <li>cg03r 是原版,cg03a reskin 自它;同 crash 数学/状态机,题材+场景+美术全异。</li>
+    <li><b>4 难度共用同一套 tile/小鸡美术</b>(不像 cg03a 每难度换皮),仅 lane 数/赔率/碰撞率不同。</li>
+    <li>多币种 USD/CNY/PHP 顶栏图标切换;hop=0.2+0.4s(cg03a 残留注释的真值来源)。</li>
+    <li><b>快捷投注档位服务端按币种下发,数量可变</b>(截图实测):coin/⚡ 场 <b>4 档 [1,2,5,10]</b>;PHP/₱ 场 <b>5 档 [100,500,1000,5000,10000]</b>(见 mg-crash 帧)。下列帧除 mg-crash 外以 coin 4 档示意。</li>
+    <li>无 .art-meta;大量 settings 件 <1KB 占位 stub(复现重出)。</li>
+  </ul></div></details>
+</main>
+
+<script>
+/* ===== 画廊 A: SCREENS ===== */
+const TOPBAR=[
+  {x:0,y:0,w:1080,h:131,k:'chrome',role:'top-bar bg',asset:'content-view/top-bar/background.png',z:10,label:'TopBar 底',sub:'1080×131'},
+  {x:10,y:36,w:560,h:60,k:'chrome',role:'balance',z:11,anchor:'(0,.5)@19,66',label:'余额 (fitText≤813)',sub:'48px #daeaff'},
+  {x:560,y:34,w:64,h:64,k:'feat',role:'currency icon',asset:'icon_currency_<CODE>',z:11,label:'币种图标 64',sub:'USD/CNY/PHP 切换'},
+  {x:906,y:21,w:90,h:90,k:'chrome',role:'settings gear',asset:'content-view/top-bar/icon_settings.png',z:11,anchor:'center@951,65.5',label:'设置齿轮 90',sub:'→ui:open:settings'},
+];
+const HUDBG=[{x:0,y:1051,w:1080,h:869,k:'bg',role:'HUD bg',asset:'player-hud/background.png',z:4,label:'HUD 底图(与路面重叠137)',sub:'1080×869 @y1051'}];
+const BETSW=[
+  {x:41.5,y:1202,w:174,h:161,k:'chrome',role:'MIN',asset:'btn_minAdjust',z:6,label:'最小 MIN',sub:'174×161'},
+  {x:195.5,y:1217,w:761,h:134,k:'chrome',role:'bet input',asset:'bet_amount_input_container',z:6,label:'投注额 $1.00',sub:'761×134;$52+额72 #daeaff'},
+  {x:956.5,y:1202,w:174,h:161,k:'chrome',role:'MAX',asset:'btn_maxAdjust',z:6,label:'最大 MAX',sub:'174×161'},
+];
+// 截图实测：部署用 [1,2,5,10] 4 键(服务端 NET_BET_CONFIG);代码 fallback 为 [0.1,0.5,1,5,10] 5 键。下为实测 4 键布局。
+const QB=[57.5,301.25,545,788.75].map((x,i)=>({x,y:1380,w:233.75,h:126,k:'chrome',role:'quickbet',asset:'btn_quickBetAmount',z:6,label:['1','2','5','10'][i]+' ●',sub:'233.75×126+币图;服务端按币种下发(coin 4档[1,2,5,10] / PHP 5档[100,500,1000,5000,10000])'}));
+const VP={x:0,y:131,w:1080,h:1057,k:'bg',role:'scene viewport',z:1,label:'玩法视口(横向车道) — 见画廊 B',sub:'1080×1057;ContentView底#3B3C50'};
+const ROUNDID={x:386,y:1166,w:400,h:30,k:'chrome',role:'round id',z:8,anchor:'(0.5,1)@586,1180',label:'Bet ID: …',sub:'22px 白 α0.7(飞行显)'};
+
+function chickenLayers(){return [
+  {x:318,y:535,w:312,h:312,k:'fx',role:'chicken(Spine)',z:5,anchor:'feet@474,691 pivot.y156',label:'体素小鸡 312×312',sub:'idle/jump/die/win'},
+  {x:474,y:700,w:205,h:120,k:'data',role:'manhole(current)',z:4,label:'当前井盖(翻金)',sub:'205×195 spine'},
+  {x:790,y:700,w:205,h:120,k:'data',role:'manhole+x_k(next)',z:4,label:'前井盖 预览倍率',sub:'54px x_k'},
+  {x:1066,y:700,w:14,h:120,k:'data',role:'manhole(far)',z:4,label:'更远井盖…',sub:''},
+];}
+
+const SCREENS=[
+ {id:'loading',cap:'Loading — loading 态',badge:'validated',meta:'DOM 覆盖 inset:0 z9999;体素农场背景(谷仓/风车/横向车道/河+体素车) + 顶部 logo「小鸡狂奔」 + 底部居中大白鸡前景 + LOADING... + 黄色进度条(NN%)',layers:[
+   {x:0,y:0,w:1080,h:1920,k:'bg',role:'bg',asset:'loading/game-view/background.jpg',z:1,label:'加载背景(体素农场+车道+河)',sub:'1080×1936 cover'},
+   {x:60,y:30,w:960,h:380,k:'hero',role:'logo',asset:'loading/game-title-logo/logo_cluckDash_<loc>.png',z:5,anchor:'顶部居中',label:'logo 小鸡狂奔(体素鸡+金字+>>>>)',sub:'@顶'},
+   {x:410,y:1390,w:260,h:300,k:'hero',role:'foreground chicken',z:4,anchor:'center-x',label:'前景大白鸡(立于草地)',sub:'底部居中'},
+   {x:370,y:1600,w:340,h:56,k:'feat',role:'LOADING text',z:8,anchor:'center@540',label:'LOADING...',sub:'白 体素字'},
+   {x:173,y:1670,w:734,h:74,k:'feat',role:'progress container',asset:'progress_bar_container',z:6,anchor:'center-x',label:'进度条容器(黑框)',sub:'734×74'},
+   {x:184,y:1682,w:660,h:51,k:'feat',role:'progress fill',z:7,label:'黄色填充(左→右) NN%',sub:'713×51;截图 90%'},
+ ]},
+ {id:'ready',cap:'Loading — ready 态',badge:'validated',meta:'进度满→Game Start 出现;点击 ENTER_GAME。bg+logo 截图确认',layers:[
+   {x:0,y:0,w:1080,h:1920,k:'bg',role:'bg',asset:'loading/game-view/background.jpg',z:1,label:'加载背景(体素农场)',sub:''},
+   {x:0,y:300,w:1080,h:300,k:'hero',role:'logo',z:5,anchor:'居中',label:'logo CLUCK DASH/小鸡狂奔',sub:''},
+   {x:180,y:1430,w:719,h:305,k:'feat',role:'start button',asset:'btn_gamestart(3态)',z:7,anchor:'居中',label:'Game Start (金色体素块)',sub:'719×305;非绿(绿是游戏内 PLAY)'},
+ ]},
+ {id:'exception',cap:'异常 / 维护屏 (登录过期示例)',badge:'validated',meta:'DOM 覆盖于 loading 体素农场背景之上;右上退出键;下部 navy 圆角面板(粗体标题+副文);title/desc 按 exceptionState 取 i18n(此处=login-expired)',layers:[
+   {x:0,y:0,w:1080,h:1920,k:'bg',role:'loading bg',asset:'loading/game-view/background.jpg',z:1,label:'loading 体素农场背景(谷仓/风车/横向车道/河)',sub:'与 loading/ready 同图'},
+   {x:0,y:200,w:1080,h:280,k:'hero',role:'logo',z:5,anchor:'居中',label:'logo 小鸡狂奔',sub:''},
+   {x:1014,y:32,w:66,h:66,k:'chrome',role:'exit',asset:'btn_back',z:9,label:'退出(右上 door 图标)',sub:'66×66'},
+   {x:139,y:1521,w:803,h:247,k:'overlay',role:'error panel',z:8,anchor:'center-x',label:'navy 圆角面板',sub:'深蓝半透明 r~12'},
+   {x:200,y:1556,w:680,h:80,k:'chrome',role:'title',z:9,anchor:'center@540,1596',label:'登录状态过期啦',sub:'粗体白 ~44px;titleKey'},
+   {x:200,y:1666,w:680,h:80,k:'chrome',role:'desc',z:9,anchor:'center@540,1706',label:'请刷新页面，重新进入游戏吧～',sub:'~30px 浅灰;descKey'},
+ ]},
+ {id:'modal',cap:'ConfirmModal (reload)',meta:'居中错误面板',layers:[
+   {x:0,y:0,w:1080,h:1920,k:'overlay',role:'dim',z:20,label:'遮罩',sub:''},
+   {x:52,y:673,w:975,h:574,k:'chrome',role:'panel',asset:'loading/error-panel/background.png',z:21,label:'错误面板底',sub:'975×574'},
+   {x:393,y:1100,w:294,h:103,k:'feat',role:'reload',asset:'btn_reload(3态)',z:22,label:'reload',sub:'294×103'},
+ ]},
+
+ {id:'mg-betting',cap:'主玩法 — 下注态',badge:'validated',meta:'bet 态：难度器闭合(Easy)+ 绿 PLAY;小鸡立于灰井盖、前方井盖显倍率(1.01x);快捷投注实测 4 键[1,2,5,10]',layers:[
+   VP,...chickenLayers(),...TOPBAR,...HUDBG,...BETSW,...QB,
+   {x:41.5,y:1525,w:997,h:134,k:'chrome',role:'difficulty selector',asset:'selector_base',z:7,label:'难度器闭合 ▼',sub:'997×134(资产761×134拉伸);标80px@106,1592;chevron@909'},
+   {x:34.5,y:1697,w:1011,h:195,k:'feat',role:'PLAY',asset:'btn_playGreen(3态)',z:7,origin:'generate',label:'PLAY 绿块',sub:'1011×195;标150px #D0FFF7;anchor center@540,1794.5'},
+ ]},
+ {id:'mg-flying',cap:'主玩法 — 飞行态',badge:'validated',meta:'cashout 态：CASH OUT(黄)$派彩 + GO(绿) 原地替换;当前倍率横幅(青)在小鸡下方;bonus 显为金币+N%金条;车辆/黄黑路障 hazard;Round ID 显',layers:[
+   VP,...chickenLayers(),
+   {x:372,y:761,w:188,h:116,k:'feat',role:'current mult banner',asset:'current_multiplier_banner',z:6,anchor:'center@466,819',label:'当前倍率 1.11x(青块)',sub:'188×116 小鸡下方;40px'},
+   {x:785,y:840,w:292,h:110,k:'fx',role:'bonus banner',asset:'decor_bonus_banner',z:6,anchor:'center@931,895',label:'金币 +N% 金条(本道 bonus)',sub:'292×110 中右(reveal>0)'},
+   {x:60,y:700,w:205,h:120,k:'data',role:'gold manhole(+N%)',z:4,label:'金井盖 +N%(已得 bonus)',sub:'manholeGold'},
+   {x:790,y:300,w:235,h:160,k:'fx',role:'truck/bus hazard',z:5,label:'横穿车辆 hazard',sub:'纵向 y-800→800'},
+   {x:60,y:480,w:300,h:90,k:'fx',role:'road barrier',asset:'decor_roadBarrier',z:5,label:'黄黑路障(safe 弹起)',sub:'298×154'},
+   ...TOPBAR,ROUNDID,...HUDBG,...BETSW,...QB,
+   {x:31,y:1522,w:494,h:372,k:'feat',role:'CASHOUT',asset:'btn_cashout(3态)',z:7,origin:'generate',label:'CASH OUT\\n$<派彩> (黄)',sub:'494×372;标76px #4D3131;截图$1.44'},
+   {x:555,y:1522,w:494,h:372,k:'feat',role:'GO',asset:'btn_go(3态)',z:7,origin:'generate',label:'GO (绿)',sub:'494×372;标76px #0F6254;下一道倍率子行可选(截图未显)'},
+ ]},
+ {id:'mg-diff-open',cap:'难度选择器 — 展开',badge:'validated',meta:'闭合 pill 上方向上弹 navy 体素 popup;Easy 选中=蓝渐变高亮条;popup 下方=闭合行「Easy ▲(青 chevron)」;再下=绿 PLAY。背后小鸡+井盖(1.01x)透出',layers:[
+   VP,...TOPBAR,...HUDBG,...BETSW,...QB,
+   {x:41.5,y:1011,w:997,h:506,k:'overlay',role:'popup bg',asset:'popup_background',z:30,label:'难度弹层(navy 体素,向上弹)',sub:'997×506 @selector上方'},
+   ...[0,1,2,3].map(i=>({x:97.5,y:1016+i*124,w:885,h:124,k:'chrome',role:'diff row',z:31,label:['Easy','Medium','Hard','Hardcore'][i],sub:'885×124 标80px@+50'})),
+   {x:97.5,y:1016,w:885,h:124,k:'feat',role:'highlight',asset:'popup_selected',z:32,label:'Easy 选中(蓝渐变高亮条)',sub:'885×124'},
+   {x:41.5,y:1525,w:997,h:134,k:'chrome',role:'selector(open)',z:7,label:'闭合行 Easy ▲(青 chevron)',sub:'997×134'},
+ ]},
+ {id:'mg-win',cap:'YOU WIN 结算 overlay',badge:'validated',meta:'manual cashout：绿体素横幅 YOU WIN+金额+金币 居中(540,278.5) + 彩带 confetti;HUD 按钮变暗(回合结束)',layers:[
+   VP,...chickenLayers(),...TOPBAR,
+   {x:223,y:191,w:634,h:175,k:'hero',role:'win_banner',asset:'label_youWinBanner',z:40,anchor:'center@540,278.5',label:'YOU WIN 横幅(绿体素圆角)',sub:'634×175;scale0→1 back.out(2)→呼吸1.2'},
+   {x:300,y:430,w:480,h:200,k:'fx',role:'confetti',z:39,label:'彩带 confetti',sub:'ConfettiEffect'},
+   {x:340,y:225,w:400,h:50,k:'feat',role:'YOU WIN header',z:41,anchor:'center@540,240',label:'YOU WIN 60px 黄#FFFF00',sub:'@框心-38.5'},
+   {x:380,y:295,w:320,h:50,k:'feat',role:'win amount',z:41,anchor:'center@540,310',label:'金额 70px 白 + 币种图标',sub:'@框心+31.5;count-up 0.4s'},
+ ]},
+ {id:'mg-crash',cap:'撞车 overlay (PHP 场次)',badge:'validated',meta:'撞毁:小鸡 die(X 眼「G G」+ 玻璃碎裂)瘫坐井盖;套现/继续按钮变暗(回合结束不可点);场景冻结(金井盖/站牌/+N%/车辆/路障);撞击瞬间另有短暂全屏红闪。本图为 PHP 币种场次(₱,快捷投注 5 档)',layers:[
+   VP,
+   {x:318,y:535,w:312,h:312,k:'fx',role:'chicken die(Spine)',z:6,anchor:'feet@474,691',label:'小鸡 die(X 眼「G G」+ 玻璃碎裂)',sub:'die 动画;瘫坐井盖'},
+   {x:474,y:700,w:205,h:120,k:'data',role:'manhole(current)',z:4,label:'当前井盖(脚下)',sub:'205×195'},
+   {x:60,y:700,w:205,h:120,k:'data',role:'gold manhole',z:4,label:'金井盖(鸡腿,已得 bonus)',sub:'manholeGold'},
+   {x:790,y:700,w:205,h:120,k:'data',role:'manhole+x_k(next)',z:4,label:'前井盖 5.51x',sub:'54px x_k'},
+   {x:818,y:870,w:260,h:80,k:'fx',role:'bonus banner',asset:'decor_bonus_banner',z:6,anchor:'center-r',label:'金币 +50% 金条(累计)',sub:'右侧'},
+   {x:60,y:300,w:235,h:170,k:'fx',role:'vehicle hazard',z:5,label:'横穿车辆(绿货车,撞击者)',sub:'纵向'},
+   {x:60,y:480,w:300,h:90,k:'fx',role:'road barrier',asset:'decor_roadBarrier',z:5,label:'黄黑路障',sub:'298×154'},
+   ...TOPBAR,ROUNDID,...HUDBG,...BETSW,...QB,
+   {x:31,y:1522,w:494,h:372,k:'chrome',role:'CASHOUT(dimmed)',z:7,label:'套现 ₱4725.00 (变暗/不可点)',sub:'494×372;回合结束 disabled'},
+   {x:555,y:1522,w:494,h:372,k:'chrome',role:'GO(dimmed)',z:7,label:'继续 4.12x (变暗/不可点)',sub:'494×372;disabled'},
+ ]},
+ {id:'mg-ultimate',cap:'Super Win / Grand Prize',badge:'validated',meta:'ultimate：小鸡越完车道到终点草地 + Grand Prize 金渐变文字(顶) + 小鸡戴金牌 + 金蛋/finishline + 彩带;bonus+100%',layers:[
+   {x:0,y:131,w:1080,h:1057,k:'bg',role:'end grass(finish)',z:1,label:'终点草地(tile_end_superwin)',sub:'小鸡已越完车道'},
+   ...chickenLayers().slice(0,1),...TOPBAR,
+   {x:140,y:200,w:800,h:140,k:'hero',role:'grand prize',z:42,anchor:'center@540,270',label:'You have won the\\nGrand Prize 80px 金渐变',sub:'@顶'},
+   {x:500,y:560,w:260,h:200,k:'fx',role:'gold egg/finishline',asset:'spine/finishline+flag',z:38,label:'金蛋/终点 finishline+flag',sub:''},
+   {x:785,y:840,w:292,h:110,k:'fx',role:'bonus +100%',asset:'decor_bonus_banner',z:6,label:'金币 +100%',sub:''},
+   {x:200,y:300,w:680,h:400,k:'fx',role:'fireworks+coin rain+ribbon',z:39,label:'烟花/金币雨/彩带(3s)',sub:'WinEffect'},
+ ]},
+ {id:'mg-bonus',cap:'bonus 累计 / 飞行态(含 bonus)',badge:'validated',meta:'飞行中:已得 bonus 的井盖翻为金井盖(鸡腿图标);右侧 +N% 累计横幅(金币+%金条);小鸡下方当前倍率(青);车辆/黄黑路障 hazard;Round ID + CASH OUT $派彩/GO',layers:[
+   VP,...chickenLayers(),
+   {x:60,y:700,w:205,h:120,k:'data',role:'gold manhole(+N%)',z:4,label:'金井盖(鸡腿图标,已得 bonus)',sub:'manholeGold;翻金'},
+   {x:372,y:761,w:188,h:116,k:'feat',role:'current mult banner',asset:'current_multiplier_banner',z:6,anchor:'center@466,819',label:'当前倍率 1.46x(青块)',sub:'188×116 小鸡下方'},
+   {x:818,y:950,w:260,h:80,k:'fx',role:'bonus banner',asset:'decor_bonus_banner',z:6,anchor:'center-r',label:'金币 + +60% 金条(累计 BONUS)',sub:'右侧;reveal>0 飞入'},
+   {x:374,y:580,w:200,h:60,k:'feat',role:'+N% reveal(transient)',z:42,anchor:'center@474,611',label:'+N% 本道(头顶,瞬时)→飞入横幅',sub:'small56#F0F8FF/med72#FFE680/big96#FFD24A'},
+   {x:60,y:300,w:235,h:170,k:'fx',role:'vehicle hazard',z:5,label:'横穿车辆(绿货车/米黄巴士)',sub:'纵向'},
+   ...[60,290].map((x,i)=>({x,y:480,w:300,h:90,k:'fx',role:'road barrier',asset:'decor_roadBarrier',z:5,label:'黄黑路障',sub:'298×154'})),
+   ...TOPBAR,ROUNDID,...HUDBG,...BETSW,...QB,
+   {x:31,y:1522,w:494,h:372,k:'feat',role:'CASHOUT',asset:'btn_cashout(3态)',z:7,origin:'generate',label:'CASH OUT\\n$2.34 (黄)',sub:'494×372;标76px #4D3131'},
+   {x:555,y:1522,w:494,h:372,k:'feat',role:'GO',asset:'btn_go(3态)',z:7,origin:'generate',label:'GO (绿)',sub:'494×372;标76px #0F6254'},
+ ]},
+
+ {id:'set-setting',cap:'设置 — Setting tab',badge:'validated',meta:'全屏 z999(底=深蓝体素方块);标题区+音量(SFX/BGM 各静音icon+3档teal条)+语言(English+刷新)+画质(Low/Med/High,High选中)',layers:[
+   {x:0,y:0,w:1080,h:1920,k:'bg',role:'panel bg',z:1,label:'设置面板底(深蓝体素)',sub:''},
+   {x:0,y:0,w:1080,h:144,k:'chrome',role:'page title',z:5,label:'标题区 Setting',sub:''},
+   {x:90,y:380,w:200,h:60,k:'chrome',role:'sfx row',z:6,label:'SFX + 静音icon + 3档 teal 条',sub:'slider 160×50'},
+   {x:90,y:560,w:200,h:60,k:'chrome',role:'bgm row',z:6,label:'BGM + 静音 + 3档',sub:''},
+   {x:480,y:870,w:560,h:100,k:'chrome',role:'language btn',z:6,label:'Select Language + English + 刷新',sub:''},
+   {x:300,y:1180,w:780,h:80,k:'chrome',role:'graphics quality',z:6,label:'Quality ☐Low ☐Med ☑High',sub:'画质三选(QualityManager)'},
+   ...tabBar('setting'),
+ ]},
+ {id:'set-guide',cap:'设置 — Guide tab',badge:'validated',meta:'How to Play 4 段;Bet/Pick a Lane/Go/Decide Each Lane;Go 段含小鸡+井盖(1.01x/1.02x)示意图',layers:[
+   {x:0,y:0,w:1080,h:1920,k:'bg',role:'panel bg',z:1,label:'设置面板底(深蓝体素)',sub:''},
+   {x:0,y:0,w:1080,h:144,k:'chrome',role:'page title',z:5,label:'Guide / How to Play(金标题)',sub:''},
+   {x:32,y:280,w:1016,h:260,k:'chrome',role:'guide sec1',z:6,label:'① Bet (0.10–100 USDT + MIN/200/MAX 条)',sub:'圆角面板'},
+   {x:32,y:580,w:1016,h:200,k:'chrome',role:'guide sec2',z:6,label:'② Pick a Lane (4 难度,见 screen 2)',sub:''},
+   {x:32,y:820,w:596,h:300,k:'chrome',role:'guide sec3 text',z:6,label:'③ Go (chicken crosses one lane)',sub:'左文'},
+   {x:660,y:850,w:380,h:240,k:'data',role:'road demo',z:6,label:'小鸡+井盖(1.01x/1.02x)示意图',sub:'右图'},
+   {x:32,y:1160,w:1016,h:300,k:'chrome',role:'guide sec4',z:6,label:'④ Decide Each Lane (CASH OUT / GO)',sub:'(滚动续)'},
+   ...tabBar('guide'),
+ ]},
+ {id:'set-history',cap:'设置 — History tab',badge:'validated',meta:'3列统计(Bet Count/Total Bet/Total Payout)+ 滚动注单(状态@Xx/Bill No+copy/Win/日期/Bet Amount)+ 筛选 Today/Recent 3 Days/Recent Week',layers:[
+   {x:0,y:0,w:1080,h:1920,k:'bg',role:'panel bg',z:1,label:'设置面板底(深蓝体素)',sub:''},
+   {x:0,y:0,w:1080,h:144,k:'chrome',role:'page title',z:5,label:'History',sub:''},
+   ...[0,1,2].map(i=>({x:60+i*340,y:180,w:300,h:116,k:'chrome',role:'stat',z:6,label:['Bet Count','Total Bet','Total Payout'][i],sub:''})),
+   {x:32,y:320,w:1016,h:200,k:'data',role:'list',z:6,label:'注单行: In Progress/成功 @Xx · Bill No+copy · Win · 日期 · Bet Amount',sub:'行 990×120 虚拟滚动'},
+   ...[0,1,2].map(i=>({x:60+i*330,y:1560,w:314,h:100,k:'chrome',role:'filter',asset:'btn_date_range',z:6,label:['Today','Recent 3 Days','Recent Week'][i],sub:'314×100'})),
+   ...tabBar('history'),
+ ]},
+
+ {id:'pop-lang',cap:'弹窗 — 语言选择',badge:'validated',meta:'设置页上模态(dim0.5);蓝半透明面板(浅蓝圆角边);标题「Language」带左右 TitleAccentLines;3 行 English(选中:亮边)/简体中文/繁體中文(深 navy 按钮)',layers:[
+   {x:0,y:0,w:1080,h:1920,k:'overlay',role:'dim',z:50,label:'遮罩 0.5(设置页透出)',sub:''},
+   {x:140,y:480,w:800,h:960,k:'chrome',role:'panel',z:51,anchor:'center@540,960',label:'语言面板(蓝半透明+浅蓝边)',sub:'800×960 #2B71BE@.6 r28'},
+   {x:240,y:560,w:600,h:90,k:'chrome',role:'header',z:52,anchor:'center@540,600',label:'Language + 左右 TitleAccentLines',sub:'白 64px+glow'},
+   ...[0,1,2].map(i=>({x:266,y:800+i*183,w:548,h:114,k:i===0?'feat':'chrome',role:'lang row',asset:'popup-option-bg(深navy)',z:52,label:['English ◀当前','简体中文','繁體中文'][i],sub:i===0?'548×114 亮边(选中)':'548×114'})),
+ ]},
+ {id:'pop-toast',cap:'弹窗 — Toast',meta:'非模态;882×179;中心下移 +760',layers:[
+   {x:99,y:1630,w:882,h:179,k:'chrome',role:'toast',z:50,anchor:'center@540,1720',label:'Toast 48px',sub:'882×179'},
+ ]},
+ {id:'pop-warning',cap:'弹窗 — Notice(断线)',badge:'validated',meta:'模态 dim0.5;976×576 浅青体素面板+蓝体素厚框;Notice 标题(深navy)+正文+绿 Confirm 体素按钮',layers:[
+   {x:0,y:0,w:1080,h:1920,k:'overlay',role:'dim',z:50,label:'遮罩 0.5',sub:''},
+   {x:52,y:672,w:976,h:576,k:'chrome',role:'panel',z:51,anchor:'center@540,960',label:'Notice 面板(浅青+蓝体素框)',sub:'976×576'},
+   {x:152,y:759,w:776,h:90,k:'chrome',role:'title',z:52,anchor:'center@540,799',label:'Notice 80px 深navy#344C6B',sub:'@0.22H'},
+   {x:152,y:930,w:776,h:140,k:'chrome',role:'content',z:52,anchor:'center@540,960',label:'Connection lost… 48px 深navy',sub:'@0.50H 可换行'},
+   {x:393,y:1061,w:294,h:104,k:'feat',role:'confirm',z:52,anchor:'center@540,1113',label:'Confirm (绿体素)',sub:'294×104 56px 白 @0.82H'},
+ ]},
+];
+function tabBar(active){
+  const t=[['back','Back'],['setting','Setting'],['guide','Guide'],['history','History'],['exit','Exit']]; // i18n;截图为 en
+  const o=[{x:0,y:1740,w:1080,h:180,k:'chrome',role:'tab bar',z:10,label:'底部 tab 栏',sub:'1080×180 @y1740'}];
+  t.forEach((x,i)=>o.push({x:i*216,y:1740,w:216,h:180,k:x[0]===active?'feat':'chrome',role:'tab '+x[0],z:11,label:x[1]+(x[0]===active?' ◀':''),sub:x[0]==='back'?'图标140':'图标72+标32'}));
+  return o;
+}
+
+/* ===== 画廊 B: 横向车道长卷（1 套，4 难度共用） ===== */
+const LANE_W=316, START_W=672, END_W=1440, N_SHOWN=6;
+const BOARD_W=START_W+LANE_W*N_SHOWN+END_W, BOARD_H=1188;
+
+/* ===== 渲染 ===== */
+function aTitle(b){let s=b.role||'';if(b.asset)s+=' · '+b.asset;if(b.anchor)s+=' · '+b.anchor;if(b.z!=null)s+=' · z'+b.z;if(b.origin)s+=' · '+b.origin;s+=' · '+(b.label||'').replace(/\\n/g,' ');if(b.sub)s+=' · '+b.sub;return s;}
+function mkBox(b,s){const d=document.createElement('div');d.className='box '+b.k;
+  d.style.left=(b.x*s)+'px';d.style.top=(b.y*s)+'px';d.style.width=(b.w*s)+'px';d.style.height=(b.h*s)+'px';d.style.zIndex=b.z||1;
+  d.title=aTitle(b);d.dataset.role=b.role||'';if(b.asset)d.dataset.asset=b.asset;d.dataset.box=[b.x,b.y,b.w,b.h].join(',');if(b.anchor)d.dataset.anchor=b.anchor;
+  const l=document.createElement('div');l.className='bl';l.textContent=(b.label||'').replace(/\\n/g,' ');d.appendChild(l);
+  if(b.sub){const x=document.createElement('div');x.className='bd dims';x.textContent=b.sub;d.appendChild(x);}return d;}
+const ZONES=[{y:0,h:131,t:'TopBar 0–131'},{y:131,h:1057,t:'GameView 131–1188'},{y:1051,h:869,t:'PlayerHUD 1051–1920 (重叠137)'}];
+function mkZones(s){const f=document.createDocumentFragment();ZONES.forEach(z=>{const d=document.createElement('div');d.className='box zone';d.style.left='0';d.style.top=(z.y*s)+'px';d.style.width=(1080*s)+'px';d.style.height=(z.h*s)+'px';d.style.zIndex=200;const l=document.createElement('div');l.className='zonelabel';l.textContent=z.t;d.appendChild(l);f.appendChild(d);});return f;}
+function renderScreens(){const W=300,s=W/1080,H=1920*s,root=document.getElementById('galleryA');
+  SCREENS.forEach(sc=>{const c=document.createElement('div');c.className='frame';
+    const _b=sc.badge||'derived';
+    c.innerHTML=`<div class="cap">${sc.cap}<span class="badge ${_b}">${_b==='validated'?'validated':'code-derived'}</span></div><div class="meta">${sc.meta}</div>`;
+    const st=document.createElement('div');st.className='stage';st.style.width=W+'px';st.style.height=H+'px';
+    sc.layers.forEach(b=>st.appendChild(mkBox(b,s)));
+    const zw=document.createElement('div');zw.className='zones';zw.appendChild(mkZones(s));
+    if(sc.id.startsWith('mg-')||sc.id==='loading'||sc.id==='ready')st.appendChild(zw);
+    c.appendChild(st);root.appendChild(c);});}
+function renderScenes(){
+  const DW=940, s=DW/BOARD_W, DH=BOARD_H*s, root=document.getElementById('galleryB');
+  const c=document.createElement('div');c.className='frame';
+  c.innerHTML=`<div class="cap">横向车道（4 难度共用，仅 lane 数不同）<span class="badge derived">code-derived</span></div><div class="meta">tile_start(672) + tile_road_strip(316)×N + tile_end_superwin(1440)；图示 N=${N_SHOWN} 示意。小鸡钉死屏 x=474，路 -=316/跳 左滚 →</div>`;
+  const st=document.createElement('div');st.className='stage';st.style.width=DW+'px';st.style.height=DH+'px';
+  // segments left→right
+  let x=0;
+  const seg=(w,lab,k)=>{const d=document.createElement('div');d.className='box '+(k||'bg');d.style.left=(x*s)+'px';d.style.top='0';d.style.width=(w*s)+'px';d.style.height=DH+'px';d.style.zIndex=1;d.innerHTML=`<div class="bl">${lab}</div><div class="bd dims">${w}×1188</div>`;d.title=lab+' '+w+'×1188';st.appendChild(d);x+=w;};
+  seg(START_W,'tile_start');
+  for(let i=0;i<N_SHOWN;i++)seg(LANE_W,'road_strip '+(i+1));
+  seg(END_W,'tile_end_superwin','feat');
+  // manholes along lanes (every 316 from after start) + multiplier signs
+  for(let i=0;i<N_SHOWN;i++){const mx=START_W+i*LANE_W+LANE_W/2;
+    const m=document.createElement('div');m.className='box data';m.style.left=((mx-102)*s)+'px';m.style.top=(620*s)+'px';m.style.width=(205*s)+'px';m.style.height=(195*s)+'px';m.style.zIndex=3;
+    m.innerHTML=`<div class="bl">井盖</div><div class="bd">x_k</div>`;m.title='manhole 205×195 + 预览倍率(54px)';st.appendChild(m);}
+  // chicken pinned at screen x=474 → board x ≈ start + 1 lane (representative)
+  const cx=START_W+LANE_W*1.5;
+  const ch=document.createElement('div');ch.className='box fx';ch.style.left=((cx-156)*s)+'px';ch.style.top=(420*s)+'px';ch.style.width=(312*s)+'px';ch.style.height=(312*s)+'px';ch.style.zIndex=6;ch.innerHTML='<div class="bl">小鸡 312×312</div><div class="bd">钉死屏x474</div>';ch.title='chicken pinned at screen x=474 (pivot.y=156 feet)';st.appendChild(ch);
+  // a passing vehicle hazard (vertical)
+  const v=document.createElement('div');v.className='box fx';v.style.left=((cx+LANE_W-118)*s)+'px';v.style.top=(150*s)+'px';v.style.width=(235*s)+'px';v.style.height=(423*s)+'px';v.style.zIndex=5;v.innerHTML='<div class="bl">车 hazard</div><div class="bd">y纵穿</div>';v.title='passing vehicle (vertical cross) hazard';st.appendChild(v);
+  // viewport window 1080 wide centered on chicken screen pos
+  const vp=document.createElement('div');vp.className='box';vp.style.border='2px solid #4a90e2';vp.style.background='rgba(74,144,226,.06)';
+  const vx=cx-474; vp.style.left=(vx*s)+'px';vp.style.top='0';vp.style.width=(1080*s)+'px';vp.style.height=DH+'px';vp.style.zIndex=4;
+  vp.innerHTML='<div class="bl" style="color:#9cc4f2">1080 可见视口</div>';vp.title='玩家可见 1080 宽窗;路左滚时窗相对右移';st.appendChild(vp);
+  // scroll arrow (left)
+  const ar=document.createElement('div');ar.style.cssText='position:absolute;left:6px;top:50%;transform:translateY(-50%);z-index:7;color:#8fd0a0;font-size:20px';ar.textContent='←';ar.title='路向左滚';st.appendChild(ar);
+  c.appendChild(st);root.appendChild(c);
+  // difficulty lane-count note card
+  const n=document.createElement('div');n.className='frame';n.style.maxWidth='320px';
+  n.innerHTML='<div class="cap">难度 = lane 数（共用美术）</div><div class="meta">EASY 28 道 (终点20x)<br>MEDIUM 22 道 (20x)<br>HARD 18 道 (25x)<br>HARDCORE 14 道 (30x)<br>—— 同一套 tile/小鸡，仅数学不同(见 GDD §4)</div>';
+  root.appendChild(n);
+}
+renderScreens();renderScenes();
+document.getElementById('showZones').addEventListener('change',e=>document.querySelectorAll('.zones').forEach(z=>z.style.display=e.target.checked?'':'none'));
+document.getElementById('showDims').addEventListener('change',e=>document.querySelectorAll('.dims').forEach(z=>z.style.display=e.target.checked?'':'none'));
+</script>
+</body>
+</html>
