@@ -7,7 +7,7 @@ description: 逆向 Unity WebGL 老虎机(ss 系列,如 ss03「MAHJONG STREAK」
 
 **引擎决定抽取方式**。本 skill 针对 **Unity WebGL 编译构建**游戏(老虎机 ss 系列):前端 repo 只是 React/Next 宿主(依赖含 `react-unity-webgl`),**真游戏是 CDN 公开 S3 上的 Unity 构建**(`.data`/`.wasm` + Addressables),repo 里 0 张游戏图。抽取靠 **UnityPy 解包**(下 S3 构建 → 拆 UnityWebData → data.unity3d + 全部 bundle → 导资产/合成布局),数学去**服务端 repo 直读**,读不到用**运行时 Guide 帮助页**验证。
 
-产出三件套 **ADD/GDD/UI-灰盒**:ADD **包含全部资产素材**(全量清单),灰盒按**屏最小覆盖硬清单**(§5.0)出齐,全部标**三态可信度徽标**,跑**完整性对账 + jsdom 自检**。核心方法论见 §0★(最重要)。
+产出三件套 **ADD/GDD/UI-灰盒**(+伴生 `elements-<CODE>.json` 机器清单):ADD 是**精炼设计文档**(设计意图+玩法→美术适配;逐文件全量清单归 elements json),灰盒按**屏最小覆盖硬清单**(§5.0)出齐,全部标**三态可信度徽标**,跑**完整性对账 + jsdom 自检**。核心方法论见 §0★(最重要)。
 
 ---
 
@@ -46,10 +46,10 @@ description: 逆向 Unity WebGL 老虎机(ss 系列,如 ss03「MAHJONG STREAK」
 
 | 文件 | 只回答 | 受众 | 关键内容 |
 |---|---|---|---|
-| `ART-AUDIO-<CODE>.md` (ADD) | 长什么样、用什么资产、什么声音 | 美术/音频 agent | Style Bible、符号集、背景分层、赔付 UI、免费/bonus 场景、庆祝分级、Spine、粒子、音频触发表、i18n;**附录=全量资产清单(§3,必须包含全部资产素材)** |
+| `ART-AUDIO-<CODE>.md` (ADD) | 长什么样、为何这样设计、玩法如何落到美术 | 美术/音频 agent | **精炼设计文档**:Style Bible、符号集设计、场景分层/模式皮、**玩法→美术适配表**、UI chrome 设计语言、音频触发设计、i18n 策略;只引代表件,**逐文件全量清单在 elements json(§3)** |
 | `GDD-<CODE>.md` (GDD) | 什么游戏、什么规则、什么数学 | 写前后端代码 agent | 老虎机数学:**win 机制(payline/ways/pay-anywhere,§4 判定阶梯)**/转轮条/赔付表/scatter+免费触发/wild/倍率/cascade/RTP;回合时序、协议、断线。优先服务端 cite,读不到按 §4 回退。不含美术 |
 | `UI-GREYBOX-<CODE>.html` | 每屏每态、东西摆哪、多大、哪一层 | UI 复现 agent + 人 | 数据驱动灰盒:**屏最小覆盖硬清单(§5.0)** + 超屏 SCENES + 三态徽标。坐标全部来自 RectTransform 合成 |
-| (伴生,推荐) `elements-<CODE>.json` | 机器可读全元素 px | 下游程序 | all_layout 精选后的逐元素 {x,y,w,h,cr,act,path} |
+| (伴生,必出) `elements-<CODE>.json` | 机器可读全量:UI 元素 px + **资产逐文件清单** | 下游程序 | `ui_elements`(可见承重件 {x,y,w,h,badge,path})+ `assets`(asset-manifest 全量:file/type/dims/时长/大小/来源组)+ counts 对账 |
 
 **铁律**:三份交叉引用、互不重复。动画时长→HTML;玩法/数学→GDD;资产 origin→ADD。
 
@@ -81,7 +81,7 @@ description: 逆向 Unity WebGL 老虎机(ss 系列,如 ss03「MAHJONG STREAK」
 ### 阶段 2 — UnityPy 抽取 + 穷尽合成(核心引擎)
 1. `python3 scripts/unitypy-extract.py unpacked/data.unity3d`(**对每个 bundle 同样跑**,各自出目录)→ `art/`(Texture2D/Sprite→PNG)、`audio/`(AudioClip;FMOD 另需 `pip install fsb5`)、`rect_transforms.json`、`monobehaviours.json`(IL2CPP release 常剥 typetree→读空,数学转 §4)、TextAsset(Spine `.atlas/.skel`、csv/json)。
 2. **穷尽合成(灰盒数据底座)**:`python3 scripts/compose-all.py unpacked/data.unity3d` 合成**全部 Canvas + 全部独立 prefab 根**→ `all_layout.json`;再 `python3 scripts/compose-bundles.py <bundles目录>` 把全部 bundle 的根并入。**宁可多合成再筛,不可漏**——"未归类"的照进灰盒兜底区(§5.0 ⑧)。
-3. **全量资产清单**:`python3 scripts/asset-manifest.py <extract目录> <bundle-extract根>` → `asset-manifest.md/.json`(每文件一行:PNG 真实宽高/音频时长/大小,按来源包分组+计数)。这是 ADD 附录与 §6 对账的机械保障。
+3. **全量资产清单**:`python3 scripts/asset-manifest.py <extract目录> <bundle-extract根>` → `asset-manifest.md/.json`(每文件一行:PNG 真实宽高/音频时长/大小,按来源包分组+计数)。这是 `elements-<CODE>.json.assets` 段与 §6 对账的机械保障(ADD 只引对账数字,§3)。
 4. **对象类型普查**作完整性基线:按类型计数 Texture2D/Sprite/AudioClip/AnimationClip/Font/TextAsset/VideoClip/Material——阶段 5 回查"抽了多少/漏了什么"。注意 **Texture2D 可能是图集页,逻辑资产数=Sprite 数**,两者都记。
 
 ### 阶段 3 — 视觉门 + 反馈门(可选) + 完整性门
@@ -99,7 +99,7 @@ description: 逆向 Unity WebGL 老虎机(ss 系列,如 ss03「MAHJONG STREAK」
 ## 3. ADD 要点(slot art/audio)
 
 - **Step 0 Style Bible**:一句话美学 + 60-30-10 配色(看导出图提) + 材质族 + 不变量(chroma-key/不烧字除 logo/effect 独立)。
-- **★ 全量资产清单(硬规则:ADD 必须包含全部资产素材)**:`asset-manifest.py` 产出的**逐文件清单嵌入 ADD 附录**(每行:文件名/类型/真实尺寸或时长/大小/来源包),正文按类精讲关键资产(每行 `target_path | type | dims | tier | origin | 描述`)。**计数对账**:附录行数 == 导出文件数(含全部 bundle),差一个都要解释(§6)。
+- **★ 资产清单分两层(硬规则,2026-07-07 修订)**:①**ADD 内=主体资产清单**——**逻辑资产**逐行(资产|类型|尺寸或时长|分类|位置|说明),覆盖全部主体件(各类图/音/视频);**组合类非主体信息折叠为族行**(序列帧、图集页、多语言变体、同名双导出→一行+说明×N 件),分清主次:不漏主体、不过度抓取(逐帧/逐语言罗列=不合格,ss03 首版 935 行即反例);**按类拆子表呈现**(符号/场景与世界板/HUD/菜单历史/入场/演出庆祝/Guide/弹窗通用/引擎内部/音频…),勿一张大表,各子表带行数与件数小计。②**elements json `assets` 段=逐物理文件机器全量**(asset-manifest 原样)。**对账**:主体族行 member 合计 == elements assets 行数 == manifest 机扫,差一个都要解释(§6)。ADD 正文另必配**「玩法→美术适配」**一章(每条玩法机制 ↔ 演出资产链)——穷尽阅读是为了理解设计。抽取工件(rect/mono json)不是资产,哪里都不进;引擎内部纹理(LUT/SMAA/字体图集页)归"引擎内部"族一行带过。
 - **slot 资产分类**:符号集(高低分+wild+scatter+金牌)、转轮框/网格、**背景分层**(见下)、赔付表 UI、免费/bonus 场景、倍率/combo/anticipation、中奖庆祝分级、Spine(`.atlas/.skel`+图集页,判孤儿前看 `.atlas`)、粒子、**字体**(common_fonts/TMP 图集)、UI 九宫格件。
 - **背景是分层的,别当一张全屏图(ss03 实录)**:场景背景(全屏 `Background_*`)+ 转轮底板(`Back_*`=FrameBG,牌网后)+ 上/下延展条 + 世界 VisualMask。用 **SpriteRenderer→sprite→GameObject 映射**核实每张图挂在哪。**超视口的全幅背景(如 2048² 对 1080×1920)在灰盒单独出 SCENE 卡**(§5.0 ⑦)。
 - **来源标注**:in-build(data.unity3d) vs 哪个 Addressables bundle;原生尺寸 vs 上屏渲染尺寸。
@@ -122,7 +122,7 @@ description: 逆向 Unity WebGL 老虎机(ss 系列,如 ss03「MAHJONG STREAK」
 ### 5.0 屏最小覆盖硬清单(缺一类=不合格)
 ① **Loading**(宿主 React 壳;来源=宿主 repo CSS,badge host/derived)
 ② **入场/START GAME**(平台中间件,若存在;bg/标题=宿主,按钮=中间件 runtime)
-③ **玩法主页面**:**HUD 与 game content 在代码里是分离的(不同 Canvas/世界根)就分卡展示,别合并**(ss02:`Canvas_PlayerHUD_*` vs 世界 `GameBoard`+`GameBoardUI_Placeholder`);**双朝向都要**(竖/横各一套)
+③ **玩法主页面以【屏】为单位,别切碎 UI**:全部 UI 层(HUD/横幅/屏顶提示等各 UI Canvas)按 z 序**合成一帧整屏**,每**态**一帧(base/free spins/…);**只有 game content(世界空间板/独立渲染域,如 ss02 世界 `GameBoard`、ss03 世界转轮)按代码分离单独出卡**(几何走 §5.3),并在整屏帧里以轮廓 ghost 标出其占位——HUD/按钮/弹窗不要各自成卡;**朝向按构建证据定**:有 `_Horizontal` 孪生 Canvas 才双朝向各一套(ss02);竖屏设计游戏(UI 全是固定竖版 board、无孪生 Canvas,如 ss03)只出竖屏帧,横屏行为**按该游戏实际证据如实描述**(board 如何摆、两侧/上下由什么填充——背景拉伸/黑边/裁切,各游戏不同)写 notes,勿造横屏投影帧
 ④ **玩法衍生态**:free spins(过场 noticer + 进行中计数/倍率)、bonus、大奖庆祝
 ⑤ **Settings 及衍生**:设置各 tab 内容、Guide/赔付、历史、语言选择
 ⑥ **弹窗/辅助窗口**:Reconnecting/Toast/Warning/退出确认/选注面板/账单详情
@@ -136,6 +136,7 @@ compose-all.py → compose-bundles.py → all_layout.json(穷尽)
   → gen-greybox.py → UI-GREYBOX-<CODE>.html → greybox-check.js → 越界分诊循环(见下)
 ```
 - **manifest(游戏特定,每游戏现写,勿抄上一游戏)**:`inject` 补合成之外的屏(宿主 loading、世界空间实测复刻、超屏 scene 卡);`sections` 按 §5.0 排;`badges` 覆盖默认;`scenes`/`bleed` 见分诊。
+- **★ inject 节点几何必须带换算式并复算**:注入节点是灰盒里唯一不经 compose 保护的坐标,且 greybox-check 抓不到"界内放错位"。CSS 中心锚(`left:X% + translate(-50%,-50%)`)最易错——X% 是**中心**不是左缘,x/y 两轴都要减自身一半(ss03 实录:y 轴减了、x 轴没减,loading 条整体右偏 390px);`right:` 定位、`transform-origin`+scale 同理。每个 inject 节点在构建脚本里写明换算式,交付前逐节点对照源码 CSS 重算(§6)。
 - **渲染器契约**:每 box 写 `data-box="x,y,w,h"` + `data-role`(含 offscreen/bleed 标记);每 `.stage` 带 `data-w/data-h`(逐帧参考分辨率,竖横混排逐帧判);scene 卡 `data-scene="1"`。控件:结构容器/非激活态/尺寸/名称开关。**占位**:余额/赢分/注额/订单号等运行时值一律 `<占位>`,别烧截图数字。
 - **★ 越界分诊循环(每个越界必须归入且仅归入一类,有依据)**:
   - (a) **滚动内容**:祖先链含 Viewport/ScrollView/ScrollContents/Scrollbar → 自动 `offscreen:scroll` 放行(要求 compose 存**完整路径**——截断路径会漏判祖先,已内置);
@@ -171,10 +172,11 @@ compose-all.py → compose-bundles.py → all_layout.json(穷尽)
 ## 6. 校验清单(阶段 5,逐条回查)
 - [ ] **每个承重数值能 cite 到来源**:坐标→compose 某节点;资产→导出文件;数学→服务端 file:line 或 Guide(注明无一手 cite)。cite 不出的标 derived。
 - [ ] **未借旧草稿骨架**:承重值全部本次回源重导(§0★★)。
-- [ ] **资产对账(ADD 全量)**:`asset-manifest.json` 计数(图/音频/其它,分 data.unity3d 与每个 bundle)== ADD 附录行数;Sprite vs Texture2D 计数都留;背景/连击/菜单等易错件用 SpriteRenderer/父链核实过。
+- [ ] **资产对账(全量在 elements)**:`asset-manifest.json` 游戏资产计数(图/音频,分 data.unity3d 与每个 bundle)== `elements-<CODE>.json.assets` 行数 == ADD 对账小节所引数字;Sprite vs Texture2D 计数都留;抽取工件(rect/mono json)不入清单;背景/连击/菜单等易错件用 SpriteRenderer/父链核实过。
 - [ ] **Addressables 对账**:catalog 全部 bundle 状态表(成功/403 存根/未试);存根与未抽的明确记缺口"可能含额外美术/屏"。
-- [ ] **屏覆盖对账**:§5.0 ①~⑧ 逐项打勾;HUD/game-content 代码分离则分卡;双朝向齐;超屏内容都有 SCENE 卡。
+- [ ] **屏覆盖对账**:§5.0 ①~⑧ 逐项打勾;UI 以整屏为单位、每态一帧(勿切碎);game content 代码分离则单独出卡+主屏内 ghost 占位;朝向按构建证据(孪生 Canvas 才出横屏,竖屏游戏只出竖屏+notes 如实描述);超屏内容都有 SCENE 卡。
 - [ ] **布局抽查**:关键帧坐标对照 compose 输出重算;世界件查过父链;布局组子件标 derived 未捏造。
+- [ ] **inject 节点逐个复算**:每个注入节点对照源码 CSS/常量重算(中心锚 translate(-50%)/right 定位/scale origin 逐项过,§5.1★)——检查器抓不到界内错位,只能靠这一条。
 - [ ] **数学走了判定阶梯**:服务端直读优先;Guide validated 注明;换皮文档数值未采信;config-gated 已注明。
 - [ ] **jsdom 自检过**:0 JS 错 + data-box>0(防空转假阴性)+ 越界全分诊(每条放行有依据)。
 - [ ] **重写/重构后 diff 旧元素清单**(防静默丢件)。
@@ -229,13 +231,13 @@ compose-all.py → compose-bundles.py → all_layout.json(穷尽)
 19. 菜单=一块 Canvas+TabList 切换,nav 从 TabList 子节点找(可能 config-gated);别捏造常驻 nav。【ss03】
 20. 屏 vs 场景按代码结构:按需 prefab 根不在静态 Canvas 下,查入口路径+服务端佐证。【ss03】
 21. **超屏内容显式建模**:滚动长纸/折叠内容/全幅背景/双朝向盖板(ScreenBoard/Veil/巨 Mask)/出血装饰——每类在灰盒有明确处理(scene 卡/offscreen/bleed),越界分诊不许无依据放行(§5.1)。【本轮】
-22. HUD 与 game content 代码分离就分卡展示。【ss02】
+22. game content(世界空间/独立渲染域)与 UI 分离时:game content 单独出卡(几何走 §5.3),UI 整体仍以屏合成、不互拆(§5.0③)。【ss02/ss03】
 
 **E. 资产**
 23. 背景分层,`Back_*`≠全屏背景(是转轮底板);SpriteRenderer→GO 映射核实挂点。【ss03】
 24. Texture2D 可能是图集页:逻辑资产=Sprite;两个计数都留。
 25. AnimationClip/AudioClip 是引擎类型,IL2CPP 剥不掉——时长/事件**可读可 cite**,别全推给截图。
-26. **ADD 必须全量**:705 张图只列 27 行=不合格;asset-manifest 机械保障+计数对账。【ss02 本轮】
+26. **全量清单进 elements json,ADD 保持设计文档**:705 张图只列 27 行=不合格(ss02),935 行全贴进 ADD 附录也不合格(ss03)——机器清单归 `elements.assets`(asset-manifest 机械保障+计数对账),ADD 精讲设计意图+玩法→美术适配。【ss02/ss03】
 
 **F. 数学**
 27. 老虎机数学/RTP 几乎都在服务端,客户端只演出;mock 别当真值。
@@ -247,8 +249,12 @@ compose-all.py → compose-bundles.py → all_layout.json(穷尽)
 31. 徽标诚实:解出≠核过(extracted≠validated);代码是运行时超集,config-gated 注明。【ss02】
 32. **自检要防"空转"**:检查器跑通≠检查生效(data-box=0 时"0 越界"是假阴性);任何门禁先验证它真的在咬合。【本轮】
 33. **代码是唯一真实信源**:截图只是可选反馈回路(核对结果/升徽标/暴露盲区),生成结果永远回代码;几何绝不量图;**部署形态=零截图,无截图必须照常出齐全部产物**。【ss02 用户硬规则】
+34. **朝向按构建证据**:竖屏设计游戏(固定竖版 board、无 `_Horizontal` 孪生)勿造"横屏投影帧"——横屏行为按该游戏实际证据描述(填充方式各游戏不同,勿把某一款的"背景拉伸"当通则),notes 说明即可;硬投影出的帧全是越界噪声。【ss03】
+35. **"怪位置"先复核 anchor 再怀疑 compose**:HUD 子件锚屏顶(aPos.y 大偏移把件推到 y25)、屏外驻留滑入面板(anchor+aPos 停在 x>W)都可能是真实设计——回原始 RectTransform 手算确认,别当 bug 修、也别急着 bleed 掩盖。【ss03】
+36. **UI 勿切碎,以屏为单位**:HUD/横幅/提示各自成卡=碎片化不直观;UI 层合成整屏、每态一帧,只有 game content/场景按代码分离(§5.0③)。数据全对仍可能"看着不对劲",根因常是缺整屏视图。【ss03】
+37. **inject 手算几何=高危区**:CSS 中心锚 `left:X%+translate(-50%,-50%)` 的 X% 是中心不是左缘,两轴都要减半宽/半高——漏一轴就整体偏移且检查器不报(界内);inject 节点必须带换算式+逐个对照源码复算(§5.1★/§6)。【ss03 实录:loading 条右偏 390px】
 
 ## 9. 输出位置 & 命名
-本 repo(`~/harley/ai_whole_pipeline/ai-reverse-skills`)根下 `output/<code>/`:`ART-AUDIO-<CODE>.md` / `GDD-<CODE>.md` / `UI-GREYBOX-<CODE>.html`(+推荐 `elements-<CODE>.json`)。`<CODE>` 大写。**`output/` 是交付物,git 跟踪**;中间产物(build 下载/unpacked/extract/bundles/all_layout/manifest)放 `work/<code>/`(gitignored,可由 scripts 从 CDN 重新推导)。
+本 repo(`~/harley/ai_whole_pipeline/ai-reverse-skills`)根下 `output/<code>/`:`ART-AUDIO-<CODE>.md` / `GDD-<CODE>.md` / `UI-GREYBOX-<CODE>.html`(+必出 `elements-<CODE>.json`:`ui_elements`+`assets` 两段)。`<CODE>` 大写。**`output/` 是交付物,git 跟踪**;中间产物(build 下载/unpacked/extract/bundles/all_layout/manifest)放 `work/<code>/`(gitignored,可由 scripts 从 CDN 重新推导)。
 
 > 安装为可 `/` 调用的 skill:把本目录复制到 `.claude/skills/reverse-unity-game-to-triad/`;或直接让 Claude "按 skills/reverse-unity-game-to-triad/SKILL.md 提取 <游戏>"(本 skill 家在 `~/harley/ai_whole_pipeline/ai-reverse-skills/`)。判据:repo 依赖含 `react-unity-webgl` → 本 skill(Unity 编译构建游戏)。
