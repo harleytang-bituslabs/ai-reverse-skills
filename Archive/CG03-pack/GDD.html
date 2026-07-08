@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CG03 Cluck Dash 小鸡狂奔 · GDD（游戏设计文档）</title>
+<style>
+:root {
+  --fg: #1f2328;
+  --muted: #57606a;
+  --border: #d0d7de;
+  --accent: #0969da;
+  --bg-soft: #f6f7f9;
+  --bg-zebra: #fafafa;
+  --bg-code: #f3f4f6;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: #fff; color: var(--fg); }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei",
+               "Helvetica Neue", Arial, "Segoe UI", sans-serif;
+  font-size: 16px; line-height: 1.7;
+  max-width: 960px; margin: 0 auto; padding: 32px 28px 80px;
+}
+article { word-wrap: break-word; }
+h1, h2, h3, h4, h5, h6 { font-weight: 600; line-height: 1.3; margin-top: 1.8em; margin-bottom: 0.6em; }
+h1 { font-size: 28px; margin-top: 0.6em; }
+h2 { font-size: 22px; padding-bottom: 0.3em; border-bottom: 1px solid var(--border); }
+h3 { font-size: 18px; }
+h4 { font-size: 16px; color: var(--muted); }
+p { margin: 0.8em 0; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+hr { border: none; border-top: 1px solid var(--border); margin: 2em 0; }
+blockquote {
+  margin: 1em 0; padding: 0.4em 1em; color: var(--muted);
+  border-left: 4px solid var(--border); background: var(--bg-soft); border-radius: 0 4px 4px 0;
+}
+ul, ol { padding-left: 1.6em; }
+li { margin: 0.2em 0; }
+code {
+  font-family: "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  font-size: 0.9em; background: var(--bg-code); padding: 2px 6px; border-radius: 3px;
+}
+pre {
+  font-family: "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  background: var(--bg-soft); padding: 14px 16px; border-radius: 6px;
+  overflow-x: auto; line-height: 1.5; font-size: 0.88em;
+}
+pre code { background: transparent; padding: 0; border-radius: 0; font-size: inherit; }
+.table-wrap { overflow-x: auto; margin: 1em 0; }
+table { border-collapse: collapse; width: 100%; font-size: 0.94em; }
+th, td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; vertical-align: top; }
+th { background: var(--bg-soft); font-weight: 600; }
+tbody tr:nth-child(even) td { background: var(--bg-zebra); }
+.prd-nav {
+  background: var(--bg-soft); border: 1px solid var(--border); border-radius: 6px;
+  padding: 10px 14px; margin-bottom: 22px; font-size: 0.95em;
+}
+.prd-nav a { margin: 0 4px; }
+.prd-nav strong { margin-right: 6px; }
+.frontmatter-card {
+  background: var(--bg-soft); border: 1px solid var(--border); border-radius: 6px;
+  padding: 14px 18px; margin: 0 0 24px 0; font-size: 0.92em;
+}
+.frontmatter-card .fm-title {
+  font-weight: 600; color: var(--muted); margin-bottom: 8px;
+  font-size: 0.85em; letter-spacing: 0.05em; text-transform: uppercase;
+}
+.frontmatter-card dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; column-gap: 16px; row-gap: 4px; }
+.frontmatter-card dt {
+  font-family: "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  font-size: 0.88em; color: var(--muted); white-space: nowrap;
+}
+.frontmatter-card dd { margin: 0; word-break: break-word; }
+.toc-block {
+  background: #fbfcfd; border: 1px solid var(--border); border-radius: 6px;
+  padding: 12px 18px; margin: 0 0 28px 0; font-size: 0.94em;
+}
+.toc-block .toc-title {
+  font-weight: 600; color: var(--muted); margin-bottom: 6px;
+  font-size: 0.85em; letter-spacing: 0.05em; text-transform: uppercase;
+}
+.toc-block ul { padding-left: 1.2em; margin: 0.2em 0; list-style: none; }
+.toc-block > ul { padding-left: 0; }
+.toc-block li { margin: 0.15em 0; }
+.toc-block a { color: var(--fg); }
+.toc-block a:hover { color: var(--accent); }
+.prd-img, .prd-thumb {
+  background-color: var(--bg-soft);
+  background-size: contain; background-repeat: no-repeat; background-position: center;
+  border: 1px solid var(--border);
+}
+.prd-img {
+  display: block; width: 100%; height: 480px; margin: 0.6em 0; border-radius: 6px;
+}
+.prd-thumb {
+  display: inline-block; width: 150px; height: 110px;
+  vertical-align: middle; margin: 4px 6px; border-radius: 4px;
+}
+@media print {
+  body { max-width: none; padding: 0; font-size: 11pt; }
+  .prd-nav { display: none; }
+  .toc-block { page-break-after: always; }
+  h1, h2, h3 { page-break-after: avoid; }
+  table { font-size: 0.85em; page-break-inside: avoid; }
+  pre, blockquote { page-break-inside: avoid; }
+  a { color: inherit; text-decoration: none; }
+}
+</style>
+
+</head>
+<body>
+<nav class="prd-nav"><strong>同包文档：</strong><a href="ADD.html">ADD</a></nav>
+<article>
+<div class="frontmatter-card"><div class="fm-title">METADATA</div><dl><dt>project</dt><dd>CG03</dd><dt>doc</dt><dd>GDD</dd><dt>interaction</dt><dd>crash-step</dd><dt>board</dt><dd>lane-scene</dd><dt>status</dt><dd>draft</dd><dt>owner</dt><dd>Game PM (TBC)</dd></dl></div>
+<div class="toc-block"><div class="toc-title">目录</div><ul><li><a href="#h2">§1 项目定位</a></li><li><a href="#h3">§2 游戏流程与状态机</a></li><li><a href="#h4">§3 核心玩法</a></li><li><a href="#h5">§4 数学框架</a></li><li><a href="#h6">§5 系统边界（美术相关）</a></li><li><a href="#h7">§6 TBC 表</a></li><li><a href="#h8">Changelog</a></li></ul></div>
+<h1 id="h1">CG03 Cluck Dash 小鸡狂奔 · GDD（游戏设计文档）</h1>
+<blockquote><p>本文是 auto-art 的游戏上下文来源，美术只读参考，不设签字。视觉审签对象见 <code>ADD.md</code>。 未定数值一律进 §6 TBC 表并挂 owner，不在正文填占位数字。</p></blockquote>
+<hr>
+<h2 id="h2">§1 项目定位</h2>
+<p>步进式倍率 crash game：小鸡横向逐格冲过马路，每安全过一格倍率递增，玩家在每格之间自主决定 CASH OUT（锁定收益）或 GO（继续赌下一格更高倍率）；被车撞即本局清零，走到赛道尽头自动按最大倍率强制结算——<code>crash-step</code> 交互踩在 <code>lane-scene</code>（横向卷轴场景）盘面上。单人离散对局，无对局倒计时、无多人广播、无跨局奖池。竖屏移动优先。</p>
+<ul>
+<li>代号：CG03</li>
+<li>interaction：crash-step</li>
+<li>board：lane-scene（横向卷轴马路，向左滚动；小鸡视觉固定屏幕中央偏左）</li>
+<li>参考游戏：Chicken Road 2（InOut Games，玩法对标）</li>
+<li>屏幕与适配：竖屏 portrait，移动优先 H5（Web 版维持竖版尺寸置中）；基准分辨率 TBC（见 §6）</li>
+<li>语言：英文(en), 繁体中文(zh), 土耳其文(tr)（logo 出此三语言变体；locale 文件 <code>tr</code> 当前落地为繁中，见 §6）</li>
+<li>货币：CNY, PHP, USD（顶栏货币符号图标已备三币种 + 通用符号回退）</li>
+<li>非目标：不做 4 赛道差异化视觉换皮（v1 共用一套美术）；不做乘客 / 载具 cinematic（CG03A 内容）；不做多人 / 跨局奖池 / 对局倒计时；不做 Bonus Game / Buy Bonus；不做横版独立资产（竖屏优先）；不自建钱包（依赖平台 Wallet API）</li>
+</ul>
+<hr>
+<h2 id="h3">§2 游戏流程与状态机</h2>
+<div class="table-wrap"><table><thead><tr><th>状态</th><th>标识符</th><th>说明</th></tr></thead><tbody>
+<tr><td>启动加载</td><td><code>loading</code></td><td>logo + 进度条载入，含错误 / 重连面板</td></tr>
+<tr><td>待机下注</td><td><code>idle</code></td><td>下注 + 选赛道，等点 PLAY</td></tr>
+<tr><td>跳格中</td><td><code>hop</code></td><td>小鸡跳一格中（入场 / 起跳动画 + server 判定回执），按钮 disabled</td></tr>
+<tr><td>落地待决策</td><td><code>at_tile</code></td><td>落到下一格，等玩家 STOP / GO</td></tr>
+<tr><td>撞车结算</td><td><code>bust</code></td><td>被车撞，本局清零，看覆层 → Play Again</td></tr>
+<tr><td>胜利结算</td><td><code>win</code></td><td>STOP 主动收款 或 走到终点强制结算，看覆层 → Play Again</td></tr>
+</tbody></table></div>
+<pre><code>loading
+  │[就绪]
+  ▼
+idle ──[PLAY + 投注OK]──► hop(第1格)
+  ▲                        │
+  │                        ├─[safe]────► at_tile
+  │                        ├─[crash]───► bust
+  │                        └─[reach_end]► win(终点强制)
+  │                                       ▲
+  │            at_tile ─[GO]─► hop        │
+  │            at_tile ─[STOP]────────────┘
+  │
+  └──[Play Again]── bust | win</code></pre>
+<p>标准局流程：玩家设定投注额 → 选赛道 → 按 PLAY 锁定投注 → 小鸡起跑（入场动画）→ 逐格 HOP：安全则路障弹出挡车、落到下一格、身后井盖翻金锁定倍率、翻盖判定加成、等决策 → 任意时机 STOP 落袋 / GO 继续 / 走到尽头自动 MAX WIN。翻牌开始后本局不可改投注额与赛道。</p>
+<p>覆层（settings / language_picker / guide / history / network_error_popup / super_win_celebration）叠加在主状态上、不进主状态机；打开时主状态冻结。</p>
+<hr>
+<h2 id="h4">§3 核心玩法</h2>
+<div class="table-wrap"><table><thead><tr><th>参数</th><th>标识符</th><th>规格</th><th>默认值</th></tr></thead><tbody>
+<tr><td>投注金额</td><td><code>bet_amount</code></td><td>快捷筹码累加（1 / 2 / 5 / 10），可双击编辑；MIN / MAX / 步进 / 精度按币种 TBC</td><td>上次投注额</td></tr>
+<tr><td>赛道</td><td><code>track</code></td><td>4 档难度：Country/Easy、Town/Medium、City/Hard、Highway/Extreme</td><td>Country/Easy</td></tr>
+<tr><td>车道总数</td><td><code>total_lanes</code></td><td>按赛道：28 / 22 / 18 / 14 格</td><td>28（Easy）</td></tr>
+<tr><td>当前倍率</td><td><code>current_multiplier</code></td><td>每安全过一格 = 逐格倍率 + 翻盖加成，逐步累加，初始 <code>1.00</code></td><td>1.00</td></tr>
+<tr><td>翻盖加成</td><td><code>reveal_bonus</code></td><td>每过一格触发一次，4 档 <code>empty / small / medium / large</code>，加法叠加</td><td>empty</td></tr>
+<tr><td>视野</td><td><code>preview</code></td><td>只显示当前格 + 前方 2 格倍率，第 3 格起不预告</td><td>前 2 格</td></tr>
+</tbody></table></div>
+<p>玩法要点：</p>
+<ul>
+<li>逐步累加：<code>current_multiplier = 过格后逐格倍率 + 翻盖加成</code>（先过格、再叠翻盖；翻空加成 = 0）。</li>
+<li>Cash Out：<code>at_tile</code> 任意时机触发 STOP，<code>payout = bet_amount × current_multiplier</code>，随后进入 <code>win</code>。</li>
+<li>撞车：跳跃中段（落地前）来车冲入碰撞即 <code>bust</code>，玩家损失 <code>bet_amount</code>（本金不返还）；覆层展示撞车前最后一格倍率（仅展示）。</li>
+<li>终点强制：走到最后一格自动按最大倍率结算，带终点彩带 + 金币雨演出；达 super-win 阈值时叠 SUPER WIN 庆祝。</li>
+<li>不预告未来：视野内仅当前格 + 前方 2 格；已走格保留翻金井盖 + 当时倍率作为路径记忆，随卷轴左移出屏。</li>
+</ul>
+<hr>
+<h2 id="h5">§4 数学框架</h2>
+<p>每次 hop 的判定接入结构（判定顺序，供 UI 与埋点对齐；具体数值全部 TBC，见 §6）：</p>
+<pre><code>r1 ~ U(0,1); if r1 &lt; crash_probability_curve[lane]: result = crash, 退出
+result = safe; base = base_multiplier_curve[lane]
+r2 ~ U(0,1) 按 reveal_distribution 落档 → tier; tier ≠ empty 时抽 delta
+current_multiplier = base + delta          # 先过格、再叠翻盖（与 §3 一致）
+if lane == total_lanes: result = reach_end</code></pre>
+<div class="table-wrap"><table><thead><tr><th>项</th><th>公式/规格</th><th>示例值</th></tr></thead><tbody>
+<tr><td>逐格倍率曲线</td><td><code>base_multiplier_curve[lane]</code>，每赛道一份，server 常驻不下发</td><td><code>[pending_math]</code></td></tr>
+<tr><td>单步撞车概率</td><td><code>crash_probability_curve[lane]</code>，每赛道一份</td><td><code>[pending_math]</code></td></tr>
+<tr><td>翻盖加成分布</td><td><code>reveal_distribution{empty, small, medium, large}</code> 各档 p + delta 范围</td><td><code>[pending_math]</code></td></tr>
+<tr><td>累加倍率</td><td><code>current_multiplier = base_multiplier_curve[lane] + reveal_delta</code></td><td><code>[pending_math]</code></td></tr>
+<tr><td>目标 RTP</td><td>每赛道一致，上线前 ≥100 万局模拟验证</td><td><code>[pending_math]</code></td></tr>
+<tr><td>单局 Max Win 上限</td><td><code>max_win_cap</code>，每赛道一份，封顶不被绕过</td><td><code>[pending_math]</code></td></tr>
+<tr><td>SUPER WIN 阈值</td><td><code>super_win_threshold</code>，触发满屏庆祝</td><td><code>[pending_math]</code></td></tr>
+</tbody></table></div>
+<blockquote><p>4 个赛道共用同一套场景美术，赛道间<strong>只有数学差异</strong>：车道总数、逐格倍率曲线、单步撞车概率、翻盖加成档分布。全部数值待数学组交付，见 §6。</p></blockquote>
+<hr>
+<h2 id="h6">§5 系统边界（美术相关）</h2>
+<p>只收会产生 UI 素材需求的边界：</p>
+<div class="table-wrap"><table><thead><tr><th>边界</th><th>触发</th><th>是否产生 UI 素材</th><th>说明</th></tr></thead><tbody>
+<tr><td>网络请求失败</td><td><code>hop</code> / 下注请求超时或断网</td><td>yes</td><td>弹 <code>network_error_popup</code> + 按钮置灰；重连后重试同 roundId，server 幂等返回同结果</td></tr>
+<tr><td>余额不足</td><td>投注额 &gt; 余额</td><td>yes</td><td><code>start</code> 返回 insufficient_balance，PLAY 阻断 + 充值引导</td></tr>
+<tr><td>会话续局</td><td>崩溃 / 关页后重进</td><td>yes</td><td>无强制结算，server 保留对局，重进 loading 后恢复到原格续局</td></tr>
+<tr><td>货币 / 登录异常</td><td>货币错误 / 登录过期</td><td>yes</td><td><code>network_error_popup</code> 呈现对应异常文案（复用公版 exceptions）</td></tr>
+<tr><td>收款进行中</td><td>STOP 请求未回</td><td>yes</td><td>按钮置灰，直到结算回应</td></tr>
+<tr><td>长时间不操作</td><td><code>at_tile</code> 久置</td><td>no</td><td>不超时、不强制结算（无额外素材需求）</td></tr>
+</tbody></table></div>
+<hr>
+<h2 id="h7">§6 TBC 表</h2>
+<div class="table-wrap"><table><thead><tr><th>item</th><th>owner</th><th>影响范围</th></tr></thead><tbody>
+<tr><td>4 赛道逐格倍率曲线（M1）</td><td>数学组</td><td>§3 / §4 倍率展示、前方 2 格倍率气泡</td></tr>
+<tr><td>4 赛道单步撞车概率（M2）</td><td>数学组</td><td>§4 判定、撞车节奏</td></tr>
+<tr><td>翻盖加成 4 档占比与加成数值（M3）</td><td>数学组</td><td>§3 / §4 翻盖演出档位</td></tr>
+<tr><td>整体 RTP 目标（M4，PRD 参考 96–97%）</td><td>数学组</td><td>§4 数值校验</td></tr>
+<tr><td>单局 Max Win 上限（M5）</td><td>数学组</td><td>§4 封顶、终点结算展示</td></tr>
+<tr><td>SUPER WIN 触发金额 / 倍率阈值（M6）</td><td>数学组</td><td>§4 super-win 庆祝触发</td></tr>
+<tr><td>投注步进 / 精度 / 区间（各币种，M7）</td><td>产品 + BackOffice</td><td>§3 投注面板</td></tr>
+<tr><td>基准分辨率 / 适配尺寸</td><td>产品 + 前端</td><td>§1 屏幕适配</td></tr>
+<tr><td>局中续局过期时长</td><td>产品</td><td>§5 会话续局</td></tr>
+<tr><td>Provably Fair 是否保留</td><td>产品</td><td>§4 RNG 设计</td></tr>
+<tr><td><code>buy_bonus_popup</code> 残留屏去留</td><td>产品 + 设计</td><td>屏幕清单范围</td></tr>
+</tbody></table></div>
+<hr>
+<h2 id="h8">Changelog</h2>
+<div class="table-wrap"><table><thead><tr><th>版本</th><th>日期</th><th>delta</th></tr></thead><tbody>
+<tr><td>v1.0.0</td><td>2026-07-02</td><td>初版：crash-step × lane-scene 双轴定型；玩法状态机、难度系统、翻盖加成、数学接入结构落定；数值项归并 §6 TBC</td></tr>
+</tbody></table></div>
+</article>
+</body>
+</html>

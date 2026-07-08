@@ -7,6 +7,9 @@
 ```
 skills/reverse-unity-game-to-triad/   # ss 系列 skill:Unity WebGL 编译构建游戏(UnityPy 解包)
 skills/reverse-game-to-triad/         # cg 系列 skill:web/JS 编译游戏(两 skill 互相独立,不交叉引用)
+skills/reverse-game-to-upstream-pack/ # 上游文档包 skill:<SLUG>-pack(GDD+ADD+assets+html),
+                                      #   规范=Archive/upstream-doc-pack-spec.md;采集复用上两者
+Archive/                              # 上游规范 + 同事 Opus 版样例包(SS03/CG03/CG05,只作参照)
 output/<code>/                        # 交付物:ART-AUDIO-<CODE>.md / GDD-<CODE>.md / UI-GREYBOX-<CODE>.html
                                       #   (ss 系列另必出 elements-<CODE>.json:ui_elements+assets 双段机器清单)
 lessons/                              # 教训台账(已整合进 skill 的条目留档追溯)

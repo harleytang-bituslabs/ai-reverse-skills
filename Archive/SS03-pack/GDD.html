@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SS03 Mahjong Streak 麻將連莊 · GDD（游戏设计文档）</title>
+<style>
+:root {
+  --fg: #1f2328;
+  --muted: #57606a;
+  --border: #d0d7de;
+  --accent: #0969da;
+  --bg-soft: #f6f7f9;
+  --bg-zebra: #fafafa;
+  --bg-code: #f3f4f6;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: #fff; color: var(--fg); }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei",
+               "Helvetica Neue", Arial, "Segoe UI", sans-serif;
+  font-size: 16px; line-height: 1.7;
+  max-width: 960px; margin: 0 auto; padding: 32px 28px 80px;
+}
+article { word-wrap: break-word; }
+h1, h2, h3, h4, h5, h6 { font-weight: 600; line-height: 1.3; margin-top: 1.8em; margin-bottom: 0.6em; }
+h1 { font-size: 28px; margin-top: 0.6em; }
+h2 { font-size: 22px; padding-bottom: 0.3em; border-bottom: 1px solid var(--border); }
+h3 { font-size: 18px; }
+h4 { font-size: 16px; color: var(--muted); }
+p { margin: 0.8em 0; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+hr { border: none; border-top: 1px solid var(--border); margin: 2em 0; }
+blockquote {
+  margin: 1em 0; padding: 0.4em 1em; color: var(--muted);
+  border-left: 4px solid var(--border); background: var(--bg-soft); border-radius: 0 4px 4px 0;
+}
+ul, ol { padding-left: 1.6em; }
+li { margin: 0.2em 0; }
+code {
+  font-family: "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  font-size: 0.9em; background: var(--bg-code); padding: 2px 6px; border-radius: 3px;
+}
+pre {
+  font-family: "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  background: var(--bg-soft); padding: 14px 16px; border-radius: 6px;
+  overflow-x: auto; line-height: 1.5; font-size: 0.88em;
+}
+pre code { background: transparent; padding: 0; border-radius: 0; font-size: inherit; }
+.table-wrap { overflow-x: auto; margin: 1em 0; }
+table { border-collapse: collapse; width: 100%; font-size: 0.94em; }
+th, td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; vertical-align: top; }
+th { background: var(--bg-soft); font-weight: 600; }
+tbody tr:nth-child(even) td { background: var(--bg-zebra); }
+.prd-nav {
+  background: var(--bg-soft); border: 1px solid var(--border); border-radius: 6px;
+  padding: 10px 14px; margin-bottom: 22px; font-size: 0.95em;
+}
+.prd-nav a { margin: 0 4px; }
+.prd-nav strong { margin-right: 6px; }
+.frontmatter-card {
+  background: var(--bg-soft); border: 1px solid var(--border); border-radius: 6px;
+  padding: 14px 18px; margin: 0 0 24px 0; font-size: 0.92em;
+}
+.frontmatter-card .fm-title {
+  font-weight: 600; color: var(--muted); margin-bottom: 8px;
+  font-size: 0.85em; letter-spacing: 0.05em; text-transform: uppercase;
+}
+.frontmatter-card dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; column-gap: 16px; row-gap: 4px; }
+.frontmatter-card dt {
+  font-family: "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  font-size: 0.88em; color: var(--muted); white-space: nowrap;
+}
+.frontmatter-card dd { margin: 0; word-break: break-word; }
+.toc-block {
+  background: #fbfcfd; border: 1px solid var(--border); border-radius: 6px;
+  padding: 12px 18px; margin: 0 0 28px 0; font-size: 0.94em;
+}
+.toc-block .toc-title {
+  font-weight: 600; color: var(--muted); margin-bottom: 6px;
+  font-size: 0.85em; letter-spacing: 0.05em; text-transform: uppercase;
+}
+.toc-block ul { padding-left: 1.2em; margin: 0.2em 0; list-style: none; }
+.toc-block > ul { padding-left: 0; }
+.toc-block li { margin: 0.15em 0; }
+.toc-block a { color: var(--fg); }
+.toc-block a:hover { color: var(--accent); }
+.prd-img, .prd-thumb {
+  background-color: var(--bg-soft);
+  background-size: contain; background-repeat: no-repeat; background-position: center;
+  border: 1px solid var(--border);
+}
+.prd-img {
+  display: block; width: 100%; height: 480px; margin: 0.6em 0; border-radius: 6px;
+}
+.prd-thumb {
+  display: inline-block; width: 150px; height: 110px;
+  vertical-align: middle; margin: 4px 6px; border-radius: 4px;
+}
+@media print {
+  body { max-width: none; padding: 0; font-size: 11pt; }
+  .prd-nav { display: none; }
+  .toc-block { page-break-after: always; }
+  h1, h2, h3 { page-break-after: avoid; }
+  table { font-size: 0.85em; page-break-inside: avoid; }
+  pre, blockquote { page-break-inside: avoid; }
+  a { color: inherit; text-decoration: none; }
+}
+</style>
+
+</head>
+<body>
+<nav class="prd-nav"><strong>同包文档：</strong><a href="ADD.html">ADD</a></nav>
+<article>
+<div class="frontmatter-card"><div class="fm-title">METADATA</div><dl><dt>project</dt><dd>SS03</dd><dt>doc</dt><dd>GDD</dd><dt>interaction</dt><dd>slot</dd><dt>board</dt><dd>reel</dd><dt>status</dt><dd>draft</dd><dt>owner</dt><dd>Game PM (TBC)</dd></dl></div>
+<div class="toc-block"><div class="toc-title">目录</div><ul><li><a href="#h2">§1 项目定位</a></li><li><a href="#h3">§2 游戏流程与状态机</a></li><li><a href="#h4">§3 核心玩法</a></li><li><a href="#h5">§4 数学框架</a></li><li><a href="#h6">§5 系统边界（美术相关）</a></li><li><a href="#h7">§6 TBC 表</a></li><li><a href="#h8">Changelog</a></li></ul></div>
+<h1 id="h1">SS03 Mahjong Streak 麻將連莊 · GDD（游戏设计文档）</h1>
+<blockquote><p>本文是 auto-art 的游戏上下文来源，美术只读参考，不设签字。视觉审签对象见 <code>ADD.md</code>。 玩法数值（转轴尺寸 / 赔线 / 赔付 / RTP / 免费次数）尚未定稿，一律进 §6 TBC 表并挂 owner，不在正文填占位数字。</p></blockquote>
+<hr>
+<h2 id="h2">§1 项目定位</h2>
+<p>麻将招财主题的视频 slot：符号为麻将牌面，中奖走 Tumble（级联连消）玩法——盘面消除后剩余符号塌落、空位再填充，单次投注可连续触发多轮消除，直至无新的中奖组合。交互为 <code>slot</code>，盘面为 <code>reel</code>（tumble 形态）。</p>
+<ul>
+<li>代号：SS03</li>
+<li>interaction：slot</li>
+<li>board：reel（tumble 级联，盘面几何尺寸见 §3 / §6 TBC）</li>
+<li>参考游戏：无（原创麻将 slot；客户端沿用平台共用 Unity-middleware 外壳）</li>
+<li>屏幕与适配：1920×1080 / 1080×1920，landscape + portrait 双向自适应</li>
+<li>语言：英文(en), 印度语(hi), 印尼文(id), 韩文(kr), 马来文(my=ms-MY Malay), 泰文(th), 越南文(vi), 简体中文(zh-hans), 繁体中文(zh-hant)（共 9，另有 Shared 非语言共用表；locale 总数待核，TBC 见 §6）</li>
+<li>货币：TBC（见 §6，由运营 / PM 定）</li>
+<li>目标 RTP：TBC（见 §6，数学组定）</li>
+<li>非目标：不自建钱包（依赖平台 Wallet API）；本包不定义具体转轴尺寸 / 赔线 / 赔付表 / RTP（属数学组交付，见 §6）；不含社交分享</li>
+</ul>
+<hr>
+<h2 id="h3">§2 游戏流程与状态机</h2>
+<p>外壳层（React）负责 Loading / 异常 / 桥接，Unity 层负责基础转、Tumble 结算与 Free Spin。状态标识符 snake_case。</p>
+<div class="table-wrap"><table><thead><tr><th>状态</th><th>标识符</th><th>说明</th></tr></thead><tbody>
+<tr><td>加载</td><td><code>loading</code></td><td>bootstrap：背景 + Loading 进度，等待登录 + 资产 + Unity GameReady</td></tr>
+<tr><td>主游戏</td><td><code>main_game</code></td><td>转轴就绪，等待投注 / Spin</td></tr>
+<tr><td>转轴判定</td><td><code>spin_resolve</code></td><td>一次 Spin 落定后判定中奖组合</td></tr>
+<tr><td>级联消除</td><td><code>tumble_cascade</code></td><td>中奖符号消除 → 剩余塌落 → 空位填充，循环直至无新中奖</td></tr>
+<tr><td>中奖演出</td><td><code>win_present</code></td><td>达档触发 Big / Super / Mega 演出层</td></tr>
+<tr><td>免费旋转公告</td><td><code>free_spin_announce</code></td><td>触发 Free Spin 时的公告 / 引导 / 开始确认屏</td></tr>
+<tr><td>免费旋转进行</td><td><code>free_spin_play</code></td><td>Free Spin 循环，显示累计与剩余次数</td></tr>
+<tr><td>免费旋转结束</td><td><code>free_spin_end</code></td><td>结束确认屏，回主游戏</td></tr>
+<tr><td>维护 / 异常</td><td><code>maintenance</code></td><td>外壳 exception 归一态（全屏暗框）</td></tr>
+</tbody></table></div>
+<pre><code>loading
+  │  登录OK + 资产/版本就绪 + Unity GameReady
+  ▼
+main_game ──on_spin──► spin_resolve ──有中奖──► tumble_cascade ──┐
+  ▲                        │                         │  (循环消除)  │
+  │                        │无中奖                    └─────────────┘
+  │                        ▼                         达档 │
+  │                     main_game ◄── win_present ◄───────┘
+  │                        │
+  │                        └──触发 Free Spin──► free_spin_announce
+  │                                                   │
+  │                                                   ▼
+  │                                            free_spin_play ──(次数用尽)──► free_spin_end
+  └───────────────────────────────────────────────────────────────────────────┘
+
+loading/main_game ──exception──► maintenance ──(exception 清除)──► loading
+main_game ──ExitGame(backURL / history.back)──► [退出]</code></pre>
+<p>标准局流程：玩家设定投注额 → Spin → 转轴落定判定 → 若有中奖组合则进入 Tumble 级联（消除 / 塌落 / 填充循环），逐轮累计本局赢分 → 达到档位阈值触发中奖演出 → 满足条件触发 Free Spin 层。Tumble 级联深度、触发规则与免费次数为数学组交付（见 §6）。</p>
+<hr>
+<h2 id="h4">§3 核心玩法</h2>
+<div class="table-wrap"><table><thead><tr><th>参数</th><th>标识符</th><th>规格</th><th>默认值</th></tr></thead><tbody>
+<tr><td>盘面几何</td><td><code>board_geometry</code></td><td>转轴列数 × 行数 / cluster 形态（Tumble 常见 5×N 或 cluster）</td><td>TBC</td></tr>
+<tr><td>中奖判定</td><td><code>win_evaluation</code></td><td>scatter-pay / ways / cluster（Tumble 无固定线概率高）</td><td>TBC</td></tr>
+<tr><td>级联消除</td><td><code>tumble_cascade</code></td><td>中奖符号消除 → 剩余塌落 → 空位填充，循环至无新中奖</td><td>机制确证，参数 TBC</td></tr>
+<tr><td>百搭</td><td><code>wild_baihua</code></td><td>麻将「百搭」= 万能牌，可替代常规符号参与组合</td><td>确证存在</td></tr>
+<tr><td>中奖档位</td><td><code>win_tier</code></td><td>至少 Big / Super / Mega 三档达档演出</td><td>≥3 档确证</td></tr>
+<tr><td>免费旋转</td><td><code>free_spin</code></td><td>Scatter / 特定组合触发免费旋转层（整套公告→进行→结束）</td><td>存在确证，触发数 / 次数 TBC</td></tr>
+</tbody></table></div>
+<p>玩法要点：</p>
+<ul>
+<li>Tumble 级联：一次 Spin 后，命中的符号组合被消除，其上方符号向下塌落填补空位，顶部再补入新符号；只要新盘面仍有中奖组合就继续消除，本局赢分逐轮累加，直至无新中奖。级联轮数无固定上限（由玩法参数与随机结果决定）。</li>
+<li>百搭（Wild）：麻将「百搭」牌为万能符号，替代常规牌面凑成中奖组合；是否具倍率 / 是否仅现于特定位置为 TBC（§6）。</li>
+<li>中奖分档：赢分达阈值触发 Big / Super / Mega 演出层（是否另有 Normal / Epic 档为 TBC）。</li>
+<li>免费旋转：确证存在完整 Free Spin 流程（公告 / 引导 / 开始确认 / 进行累计 / 结束确认）；触发条件、免费次数、是否 retrigger 为数学组交付（§6）。</li>
+</ul>
+<hr>
+<h2 id="h5">§4 数学框架</h2>
+<p>Tumble slot 的数学模型（赔付表 / 各符号权重 / RTP / 波动 / Free Spin 期望）为数学组交付物；本包不编造数值，未知项一律进 §6。</p>
+<div class="table-wrap"><table><thead><tr><th>项</th><th>公式/规格</th><th>示例值</th></tr></thead><tbody>
+<tr><td>目标 RTP</td><td>由可换数学表决定</td><td>TBC</td></tr>
+<tr><td>赔付表</td><td>各符号 × 命中数量的赔付倍数表</td><td>TBC</td></tr>
+<tr><td>符号权重 / 转轴带</td><td>各符号在盘面出现的权重分布</td><td>TBC</td></tr>
+<tr><td>Tumble 期望</td><td>单次 Spin 的级联轮数期望 / 赢分分布</td><td>TBC</td></tr>
+<tr><td>Free Spin 触发与期望</td><td>触发条件 + 免费次数 + retrigger + 期望贡献</td><td>TBC</td></tr>
+<tr><td>最大中奖 Max Win</td><td>单局赢分上限倍数</td><td>TBC</td></tr>
+</tbody></table></div>
+<blockquote><p>上表所有数值属数学组 / 数学表交付（见 §6）。本包定型的是美术可见的玩法骨架（Tumble、Free Spin、中奖分档）与视觉需求，数值定稿后回填。</p></blockquote>
+<hr>
+<h2 id="h6">§5 系统边界（美术相关）</h2>
+<p>只收会产生 UI 素材需求的边界：</p>
+<div class="table-wrap"><table><thead><tr><th>边界</th><th>触发</th><th>是否产生 UI 素材</th><th>说明</th></tr></thead><tbody>
+<tr><td>断线重连</td><td>运行中网络中断</td><td>yes</td><td>重连提示 / Toast；恢复后回到中断前状态</td></tr>
+<tr><td>单一 session</td><td>同账号他处登录</td><td>yes</td><td>弹窗提示（<code>sso-disconnected</code>），禁止双端并行</td></tr>
+<tr><td>外壳异常态</td><td>平台维护 / 版本 / 货币不支持等</td><td>yes</td><td>全屏纯 CSS 暗框（标题 + 描述 + 可选退出按钮 + 版本号）</td></tr>
+<tr><td>语言切换</td><td>Unity 内切语言</td><td>yes</td><td><code>SetLanguage</code> 桥同步外壳 locale；标题 / 演出图按语言换图（见 ADD §3e / §6）</td></tr>
+<tr><td>派彩 / 结算失败</td><td>Wallet / 结算返回失败</td><td>yes</td><td>处理中 / 重试提示（具体文案见共用壳 exceptions，ADD §8）</td></tr>
+</tbody></table></div>
+<blockquote><p>外壳 exception 归一枚举与文案沿用平台共用壳（见 ADD §8 的 <code>exceptions</code> 模块），本作差异见该表。</p></blockquote>
+<hr>
+<h2 id="h7">§6 TBC 表</h2>
+<div class="table-wrap"><table><thead><tr><th>item</th><th>owner</th><th>影响范围</th></tr></thead><tbody>
+<tr><td>盘面几何（列数 × 行数 / cluster 形态）</td><td>数学组</td><td>§3 盘面、ADD §3a 符号排布、盘面区版面</td></tr>
+<tr><td>中奖判定方式（ways / cluster / scatter-pay）</td><td>数学组</td><td>§3 玩法、ADD §3b 赔付表屏</td></tr>
+<tr><td>完整符号集（除已知 發 / 中 / 萬 / 八萬 / 百搭 外）</td><td>数学组 + 美术</td><td>ADD §3a 符号表</td></tr>
+<tr><td>赔付表（各符号 × 命中数量倍数）</td><td>数学组</td><td>§4 数值、ADD §3b 赔付表屏内容</td></tr>
+<tr><td>目标 RTP / 波动</td><td>数学组</td><td>§4 数值</td></tr>
+<tr><td>符号权重 / 转轴带</td><td>数学组</td><td>§4 数值</td></tr>
+<tr><td>Free Spin 触发条件 / 免费次数 / retrigger</td><td>数学组</td><td>§3 / §4、ADD §3d Free Spin 层文案</td></tr>
+<tr><td>最大中奖 Max Win</td><td>数学组</td><td>§4 数值、中奖上限展示</td></tr>
+<tr><td>是否存在 Normal / Epic 等额外中奖档</td><td>数学组 + PM</td><td>ADD §3c win-tier 演出矩阵档数</td></tr>
+<tr><td>货币列表 + 金额显示小数位（各币种）</td><td>运营 + PM</td><td>§1 货币、下注 / 派彩数字显示</td></tr>
+<tr><td>Dev / Staging / QA / UAT 排期</td><td>PM</td><td>交付节点</td></tr>
+<tr><td>locale 总数与最终语言名单（当前登记 9 + Shared）</td><td>PM</td><td>§1 语言、ADD §3e / §6 本地化</td></tr>
+</tbody></table></div>
+<hr>
+<h2 id="h8">Changelog</h2>
+<div class="table-wrap"><table><thead><tr><th>版本</th><th>日期</th><th>delta</th></tr></thead><tbody>
+<tr><td>v1.0.0</td><td>2026-07-02</td><td>初版：Tumble slot 玩法骨架 + Free Spin + 中奖分档确证入正文；全部玩法数值挂 §6 TBC</td></tr>
+<tr><td>v1.0.1</td><td>2026-07-02</td><td>语言口径改为 9 locale + Shared 共用表（my=ms-MY Malay），删缅甸文；locale 总数挂 §6 TBC（owner: PM）</td></tr>
+</tbody></table></div>
+</article>
+</body>
+</html>

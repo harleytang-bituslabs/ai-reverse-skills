@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CG05 MineBeach 沙灘掃雷 · GDD（游戏设计文档）</title>
+<style>
+:root {
+  --fg: #1f2328;
+  --muted: #57606a;
+  --border: #d0d7de;
+  --accent: #0969da;
+  --bg-soft: #f6f7f9;
+  --bg-zebra: #fafafa;
+  --bg-code: #f3f4f6;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: #fff; color: var(--fg); }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei",
+               "Helvetica Neue", Arial, "Segoe UI", sans-serif;
+  font-size: 16px; line-height: 1.7;
+  max-width: 960px; margin: 0 auto; padding: 32px 28px 80px;
+}
+article { word-wrap: break-word; }
+h1, h2, h3, h4, h5, h6 { font-weight: 600; line-height: 1.3; margin-top: 1.8em; margin-bottom: 0.6em; }
+h1 { font-size: 28px; margin-top: 0.6em; }
+h2 { font-size: 22px; padding-bottom: 0.3em; border-bottom: 1px solid var(--border); }
+h3 { font-size: 18px; }
+h4 { font-size: 16px; color: var(--muted); }
+p { margin: 0.8em 0; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+hr { border: none; border-top: 1px solid var(--border); margin: 2em 0; }
+blockquote {
+  margin: 1em 0; padding: 0.4em 1em; color: var(--muted);
+  border-left: 4px solid var(--border); background: var(--bg-soft); border-radius: 0 4px 4px 0;
+}
+ul, ol { padding-left: 1.6em; }
+li { margin: 0.2em 0; }
+code {
+  font-family: "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  font-size: 0.9em; background: var(--bg-code); padding: 2px 6px; border-radius: 3px;
+}
+pre {
+  font-family: "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  background: var(--bg-soft); padding: 14px 16px; border-radius: 6px;
+  overflow-x: auto; line-height: 1.5; font-size: 0.88em;
+}
+pre code { background: transparent; padding: 0; border-radius: 0; font-size: inherit; }
+.table-wrap { overflow-x: auto; margin: 1em 0; }
+table { border-collapse: collapse; width: 100%; font-size: 0.94em; }
+th, td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; vertical-align: top; }
+th { background: var(--bg-soft); font-weight: 600; }
+tbody tr:nth-child(even) td { background: var(--bg-zebra); }
+.prd-nav {
+  background: var(--bg-soft); border: 1px solid var(--border); border-radius: 6px;
+  padding: 10px 14px; margin-bottom: 22px; font-size: 0.95em;
+}
+.prd-nav a { margin: 0 4px; }
+.prd-nav strong { margin-right: 6px; }
+.frontmatter-card {
+  background: var(--bg-soft); border: 1px solid var(--border); border-radius: 6px;
+  padding: 14px 18px; margin: 0 0 24px 0; font-size: 0.92em;
+}
+.frontmatter-card .fm-title {
+  font-weight: 600; color: var(--muted); margin-bottom: 8px;
+  font-size: 0.85em; letter-spacing: 0.05em; text-transform: uppercase;
+}
+.frontmatter-card dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; column-gap: 16px; row-gap: 4px; }
+.frontmatter-card dt {
+  font-family: "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  font-size: 0.88em; color: var(--muted); white-space: nowrap;
+}
+.frontmatter-card dd { margin: 0; word-break: break-word; }
+.toc-block {
+  background: #fbfcfd; border: 1px solid var(--border); border-radius: 6px;
+  padding: 12px 18px; margin: 0 0 28px 0; font-size: 0.94em;
+}
+.toc-block .toc-title {
+  font-weight: 600; color: var(--muted); margin-bottom: 6px;
+  font-size: 0.85em; letter-spacing: 0.05em; text-transform: uppercase;
+}
+.toc-block ul { padding-left: 1.2em; margin: 0.2em 0; list-style: none; }
+.toc-block > ul { padding-left: 0; }
+.toc-block li { margin: 0.15em 0; }
+.toc-block a { color: var(--fg); }
+.toc-block a:hover { color: var(--accent); }
+.prd-img, .prd-thumb {
+  background-color: var(--bg-soft);
+  background-size: contain; background-repeat: no-repeat; background-position: center;
+  border: 1px solid var(--border);
+}
+.prd-img {
+  display: block; width: 100%; height: 480px; margin: 0.6em 0; border-radius: 6px;
+}
+.prd-thumb {
+  display: inline-block; width: 150px; height: 110px;
+  vertical-align: middle; margin: 4px 6px; border-radius: 4px;
+}
+@media print {
+  body { max-width: none; padding: 0; font-size: 11pt; }
+  .prd-nav { display: none; }
+  .toc-block { page-break-after: always; }
+  h1, h2, h3 { page-break-after: avoid; }
+  table { font-size: 0.85em; page-break-inside: avoid; }
+  pre, blockquote { page-break-inside: avoid; }
+  a { color: inherit; text-decoration: none; }
+}
+</style>
+
+</head>
+<body>
+<nav class="prd-nav"><strong>同包文档：</strong><a href="ADD.html">ADD</a></nav>
+<article>
+<div class="frontmatter-card"><div class="fm-title">METADATA</div><dl><dt>project</dt><dd>CG05</dd><dt>doc</dt><dd>GDD</dd><dt>interaction</dt><dd>crash-step</dd><dt>board</dt><dd>grid</dd><dt>status</dt><dd>draft</dd><dt>owner</dt><dd>Nathan Kao (Game PM)</dd></dl></div>
+<div class="toc-block"><div class="toc-title">目录</div><ul><li><a href="#h2">§1 项目定位</a></li><li><a href="#h3">§2 游戏流程与状态机</a></li><li><a href="#h4">§3 核心玩法</a></li><li><a href="#h5">§4 数学框架</a></li><li><a href="#h6">§5 系统边界（美术相关）</a></li><li><a href="#h7">§6 TBC 表</a></li><li><a href="#h8">Changelog</a></li></ul></div>
+<h1 id="h1">CG05 MineBeach 沙灘掃雷 · GDD（游戏设计文档）</h1>
+<blockquote><p>本文是 auto-art 的游戏上下文来源，美术只读参考，不设签字。视觉审签对象见 <code>ADD.md</code>。 未定数值一律进 §6 TBC 表并挂 owner，不在正文填占位数字。</p></blockquote>
+<hr>
+<h2 id="h2">§1 项目定位</h2>
+<p>沙滩主题的 Mini Game 博弈小游戏：玩家在 5×5 盘面上逐格翻牌，安全格使累积倍率指数上升，可随时收款离场，踩雷即本局失败——<code>crash-step</code> 交互踩在 <code>grid</code> 盘面上。</p>
+<ul>
+<li>代号：CG05</li>
+<li>interaction：crash-step</li>
+<li>board：grid（5×5 = 25 格）</li>
+<li>参考游戏：Mines by Jili Games</li>
+<li>屏幕与适配：1080×1920，portrait（手机竖版为主；Web 版维持竖版尺寸置中，左右留白以满版背景填充，不另做横向版面）</li>
+<li>语言：简体中文, 英文, 葡萄牙语(巴西), 越南文, 印尼文, 泰文, 韩文, 马来文, 印度语, 缅甸文（共 10）</li>
+<li>货币：CNY, PHP, USD, BRL（共 4）</li>
+<li>目标 RTP：97.5%（House Edge 2.5%）</li>
+<li>非目标：不支持多人对战；不自建钱包（依赖平台 Wallet API）；不支持 Free Round；不支持自定义盘面大小（固定 5×5）；不支持社交分享；本期无 Jackpot / 星星格等机制</li>
+</ul>
+<hr>
+<h2 id="h3">§2 游戏流程与状态机</h2>
+<div class="table-wrap"><table><thead><tr><th>状态</th><th>标识符</th><th>说明</th></tr></thead><tbody>
+<tr><td>等待下注</td><td><code>idle</code></td><td>显示游戏主画面，尚未下注</td></tr>
+<tr><td>下注中</td><td><code>betting</code></td><td>玩家设定下注额与地雷数</td></tr>
+<tr><td>游戏中</td><td><code>playing</code></td><td>玩家逐格翻开，可随时收款</td></tr>
+<tr><td>主动收款</td><td><code>cash_out</code></td><td>玩家按收款，以当前倍率结算</td></tr>
+<tr><td>爆炸</td><td><code>mine_hit</code></td><td>翻到地雷，本局失败</td></tr>
+<tr><td>完美通关</td><td><code>perfect_clear</code></td><td>翻完所有安全格，自动以最高倍率结算</td></tr>
+<tr><td>局结算</td><td><code>round_settled</code></td><td>显示完整盘面，回到 idle</td></tr>
+<tr><td>派彩待处理</td><td><code>payout_pending</code></td><td>Wallet 派彩失败，进入 retry</td></tr>
+</tbody></table></div>
+<pre><code>idle
+  │
+  ▼
+betting ◄─[Server 建立 round 失败 → 回退 betting，未扣款，不写 DB]
+  │
+  ▼
+playing ───────────────► payout_pending ──[retry]──┐
+  │                          ▲                       │
+  ├─on_cashout──────► cash_out ─────────┐            │
+  │                                      │            │
+  ├─on_mine_hit─────► mine_hit ─────────►┤            │
+  │                                      │            │
+  └─on_perfect_clear► perfect_clear ────►┤◄───────────┘
+                                         ▼
+                                    round_settled
+                                         │
+                                         ▼
+                                        idle</code></pre>
+<p>标准局流程：玩家设定下注额 → 选地雷数（3~24）→ 按开始 → 后端生成地雷地图（不传前端）→ 逐格翻开，安全格累乘倍率 → 任意时机按收款落袋 / 或翻完全部安全格触发完美通关。MVP 单局单盘面单次下注，翻牌开始后不可改下注额或地雷数。</p>
+<hr>
+<h2 id="h4">§3 核心玩法</h2>
+<div class="table-wrap"><table><thead><tr><th>参数</th><th>标识符</th><th>规格</th><th>默认值</th></tr></thead><tbody>
+<tr><td>下注金额</td><td><code>bet_amount</code></td><td>从默认 Bet Option 列表中选取（不支持手动输入）</td><td>TBC</td></tr>
+<tr><td>地雷数</td><td><code>mine_count</code></td><td>整数，3~24</td><td>4</td></tr>
+<tr><td>盘面大小</td><td><code>grid_size</code></td><td>固定 5×5 = 25 格</td><td>25</td></tr>
+<tr><td>安全格</td><td><code>tile_safe</code></td><td>数量 = 25 − <code>mine_count</code>，翻开使倍率累乘</td><td>—</td></tr>
+<tr><td>地雷格</td><td><code>tile_mine</code></td><td>数量 = <code>mine_count</code>，翻开即本局失败</td><td>—</td></tr>
+<tr><td>当前倍率</td><td><code>current_multiplier</code></td><td>每翻一安全格 <code>× step_multiplier</code>，初始 <code>1.0</code></td><td>1.0</td></tr>
+</tbody></table></div>
+<p>玩法要点：</p>
+<ul>
+<li>累乘制：<code>current_multiplier = current_multiplier × step_multiplier(mine_count, revealed_count)</code>，初始 <code>1.0</code>。</li>
+<li>Cash Out：<code>playing</code> 任意时机触发 <code>on_cashout</code>，<code>payout = bet_amount × current_multiplier</code>，随后进入 <code>round_settled</code>。</li>
+<li>完美通关：翻完所有安全格且未踩雷，自动以最高倍率 cashout，带专属动效与音效。</li>
+<li>爆炸：翻到地雷，揭示全盘真实位置，玩家损失 <code>bet_amount</code>（本金不返还）。</li>
+</ul>
+<hr>
+<h2 id="h5">§4 数学框架</h2>
+<p>地雷数 <code>M</code>、总格 25、已翻 <code>k</code>：</p>
+<div class="table-wrap"><table><thead><tr><th>项</th><th>公式/规格</th><th>示例值</th></tr></thead><tbody>
+<tr><td>全安全概率</td><td><code>P(k) = C(25 - M, k) / C(25, k)</code></td><td>M=24, k=1 → 1/25 = 0.04</td></tr>
+<tr><td>公平倍数</td><td><code>fair_multiplier(k) = 1 / P(k)</code></td><td>M=24, k=1 → 25x</td></tr>
+<tr><td>实际倍数</td><td><code>actual_multiplier = fair_multiplier(k) × 0.975</code>（RTP_factor）</td><td>M=24, k=1 → ≈ 24.275x</td></tr>
+<tr><td>目标 RTP</td><td>97.5%，对 3~24 全地雷数一致，上线前模拟验证</td><td>97.5% ± 容许误差</td></tr>
+<tr><td>每步系数 <code>step_multiplier</code></td><td>基于组合机率 + RTP 系数（0.975）逐格产出</td><td>完整 3~24 表 TBC（§6）</td></tr>
+<tr><td>最大中奖 Max Win</td><td>需数学组确认</td><td>TBC（§6）</td></tr>
+</tbody></table></div>
+<p>示例倍率表（仅 3/5/10/24 地雷数 × 前六格，供 UI 展示比例参照；完整 3~24 表为 §6 TBC）：</p>
+<div class="table-wrap"><table><thead><tr><th>地雷数 \ 已翻格</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th></tr></thead><tbody>
+<tr><td>3</td><td>1.11x</td><td>1.27x</td><td>1.46x</td><td>1.68x</td><td>1.92x</td><td>2.21x</td></tr>
+<tr><td>5</td><td>1.22x</td><td>1.41x</td><td>1.64x</td><td>1.90x</td><td>2.20x</td><td>2.54x</td></tr>
+<tr><td>10</td><td>1.62x</td><td>2.15x</td><td>2.84x</td><td>3.75x</td><td>4.95x</td><td>6.53x</td></tr>
+<tr><td>24</td><td>24.38x</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+</tbody></table></div>
+<p>倍率上限随地雷数连动（初版建议值，待数学组验算定稿，见 §6）：</p>
+<div class="table-wrap"><table><thead><tr><th>地雷数范围</th><th><code>max_multiplier</code> 区间</th><th>初版建议</th><th>备注</th></tr></thead><tbody>
+<tr><td>3~5</td><td>10x~25x</td><td>20x</td><td>低风险区，避免前期倍率过高</td></tr>
+<tr><td>6~10</td><td>50x~100x</td><td>80x</td><td>中风险区</td></tr>
+<tr><td>11~15</td><td>200x~500x</td><td>300x</td><td>中高风险区，主流高倍区</td></tr>
+<tr><td>16~20</td><td>500x~1,000x</td><td>800x</td><td>高风险区，需搭配 Max Win</td></tr>
+<tr><td>21~23</td><td>25x~500x</td><td>200x</td><td>极短局区</td></tr>
+<tr><td>24</td><td>—</td><td>25x（24.275x）</td><td>需独立处理</td></tr>
+</tbody></table></div>
+<blockquote><p>注：16~20 颗的上限高于 21~24 颗——25 格盘面中前者可走步数更多、加成次数更多；21~23 颗仅剩 4~2 步。若设倍率上限，须确认不影响目标 RTP（高地雷数需特别验算，见 §6）。</p></blockquote>
+<hr>
+<h2 id="h6">§5 系统边界（美术相关）</h2>
+<p>只收会产生 UI 素材需求的边界：</p>
+<div class="table-wrap"><table><thead><tr><th>边界</th><th>触发</th><th>是否产生 UI 素材</th><th>说明</th></tr></thead><tbody>
+<tr><td>余额不足</td><td>下注额 &gt; 余额</td><td>yes</td><td>开始按钮 disabled + Toast「余额不足」</td></tr>
+<tr><td>网络请求失败</td><td>翻格/下注请求失败</td><td>yes</td><td>错误 Modal「操作失败，请重试」，不扣积分</td></tr>
+<tr><td>收款进行中</td><td>Cash Out 请求未回</td><td>yes</td><td>所有格子与按钮 disabled，直到结算回应</td></tr>
+<tr><td>单一 session</td><td>同账号第二端进入</td><td>yes</td><td>提示「此账号已在其他视窗开启游戏，请关闭后再试」并禁止进入</td></tr>
+<tr><td>断线重连</td><td><code>playing</code> 中网络中断</td><td>yes</td><td>重连回到 <code>playing</code> 续局；逾时按 <code>reconnect_timeout</code> 自动 cashout 结算</td></tr>
+<tr><td>派彩失败</td><td>Wallet 派彩返回失败</td><td>yes</td><td>进入 <code>payout_pending</code> → retry，UI 呈现处理中状态</td></tr>
+</tbody></table></div>
+<blockquote><p><code>reconnect_timeout</code> 依照运营商上限处理，不预设时间。</p></blockquote>
+<hr>
+<h2 id="h7">§6 TBC 表</h2>
+<div class="table-wrap"><table><thead><tr><th>item</th><th>owner</th><th>影响范围</th></tr></thead><tbody>
+<tr><td><code>step_multiplier</code> 每步系数 + 完整 3~24 倍率表</td><td>数学组</td><td>§3 / §4 倍率展示、倍率条刻度</td></tr>
+<tr><td>最大中奖 Max Win 数值</td><td>数学组</td><td>§4 数值、可能的胜利上限展示</td></tr>
+<tr><td>倍率上限区间是否影响 RTP（高地雷数验算）</td><td>数学组</td><td>§4 上限策略</td></tr>
+<tr><td><code>bet_amount</code> 默认 Bet Option 档位表（各币种）</td><td>产品 + BackOffice</td><td>§3 下注面板选项</td></tr>
+<tr><td>Dev / Staging / QA / UAT 排期</td><td>PM</td><td>交付节点</td></tr>
+<tr><td>设计需求 Figma 启动</td><td>美术</td><td>视觉细化</td></tr>
+</tbody></table></div>
+<hr>
+<h2 id="h8">Changelog</h2>
+<div class="table-wrap"><table><thead><tr><th>版本</th><th>日期</th><th>delta</th></tr></thead><tbody>
+<tr><td>v1.0.1</td><td>2026-06-29</td><td>下注仅选默认 Bet Option（移除金额输入框）；<code>reconnect_timeout</code> 依运营商上限处理；FE/BE Lead 记为 Jack Liao</td></tr>
+</tbody></table></div>
+</article>
+</body>
+</html>

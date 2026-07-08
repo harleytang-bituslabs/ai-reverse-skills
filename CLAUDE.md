@@ -1,9 +1,13 @@
 # CLAUDE.md
 
-本 repo 是「逆向已上线游戏 → 训练素材三件套」的 skill 工程,含两个互相独立的 skill:
+本 repo 是「逆向已上线游戏 → 训练素材」的 skill 工程,含三个 skill:
 **ss 系列**(Unity WebGL 编译构建)→ `skills/reverse-unity-game-to-triad/SKILL.md`;
-**cg 系列**(web/JS 编译)→ `skills/reverse-game-to-triad/SKILL.md`。
-**做任何逆向/生成工作前,先按游戏类型选对 skill 并严格照做**(判据:repo 依赖含 `react-unity-webgl` → ss/unity skill);README.md 有项目布局。两个 skill 互不引用(ss skill 必须自包含,不得提及 cg 系列内容)。
+**cg 系列**(web/JS 编译)→ `skills/reverse-game-to-triad/SKILL.md`;
+**上游文档包**(auto-art 审签用 `<SLUG>-pack/`,规范=`Archive/upstream-doc-pack-spec.md`)→
+`skills/reverse-game-to-upstream-pack/SKILL.md`(数据采集按前两者选型,产物按 SPEC)。
+**做任何逆向/生成工作前,先按【游戏类型 × 产物形态】选对 skill 并严格照做**(游戏类型判据:repo 依赖含
+`react-unity-webgl` → ss/unity 管线;产物形态判据:用户要 doc pack/审签格式 → 第三 skill);README.md 有项目布局。
+ss/cg 两 skill 互不引用(ss skill 必须自包含,不得提及 cg 系列内容);pack skill 是编排层,可引用两者。
 
 ## 硬规则(用户定,优先级最高)
 
