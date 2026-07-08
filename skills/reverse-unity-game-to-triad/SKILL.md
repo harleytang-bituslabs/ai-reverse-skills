@@ -218,6 +218,8 @@ compose-all.py → compose-bundles.py → all_layout.json(穷尽)
 10. **bundle 两条 base 路径**(aa/WebGL 与 ServerData/WebGL)逐个 fallback;**403 存根**(~250B AccessDenied XML)会静默混进目录,必检。【ss02】
 11. **别只凭 data.unity3d 判"不在构建"**:运行时 UI 按功能 pack 分 bundle(settingpage/popuppage/freegame_noticer…),必须拉全抽全;catalog 也可能全是本地化(ss03)——两种都见过,别预设。【ss02 重大】
 12. Addressables 可能有真美术包(common_textures/shaders/fonts),抽或标缺口。【ss02】
+12b. **catalog strings 会截断带括号长名**(如 `localization-assets-english(en)_…` 只剩 `english(en)_…` 碎片)→ 碎片勿当"真缺":按 OK 全名组交叉甄别 + `strings catalog.bin | grep 'localization-assets-'` 复核实体组数(每语言 hash 数=其组类型数)。【ss02 重跑】
+12c. **同一 bundle 双名可下载成功**(实名无 hash 与带 hash 名同物)→ 抽取前按内容 md5 去重(重复入 manifest 会双份计数)。【ss02 重跑】
 
 **C. 布局合成**
 13. 布局=锚点相对值沿层级合成(脚本算,勿目测);Canvas 中心 pivot 偏移已封装。

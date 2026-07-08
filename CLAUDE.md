@@ -23,7 +23,7 @@
 ## 产物与验证
 
 - 三件套命名固定:`output/<code>/ART-AUDIO-<CODE>.md`(ADD)/ `GDD-<CODE>.md` / `UI-GREYBOX-<CODE>.html`
-  (ss 系列另有 `elements-<CODE>.json`)。
+  (ss 系列另**必出** `elements-<CODE>.json`:`ui_elements`+`assets` 双段机器清单)。
 - 灰盒机械验收门(两个 skill 各带同名脚本):`node skills/<skill>/scripts/greybox-check.js <html> [W H]`,
   通过标准 = 0 JS 错 + data-box>0 + 越界全部分诊完;渲染器须给每个 box 写 `data-box`/`data-role` 才可被检测。
 - 各 SKILL.md 末尾有完整脚本用法表与提交前 checklist,照表执行,不要凭记忆拼命令。
