@@ -1,0 +1,128 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>SS03-pack GDD</title><style>body{font:15px/1.65 -apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;
+max-width:1080px;margin:24px auto;padding:0 20px;color:#1c2733}
+h1{font-size:26px;border-bottom:2px solid #d8dee6;padding-bottom:8px}
+h2{font-size:20px;margin-top:34px;border-left:4px solid #4a7dbd;padding-left:10px}
+h3{font-size:16px;margin-top:24px}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:13.5px}
+th,td{border:1px solid #c9d2dc;padding:6px 9px;text-align:left;vertical-align:top}
+th{background:#eef2f7}tr:nth-child(even) td{background:#f7f9fb}
+blockquote{margin:10px 0;padding:8px 14px;background:#f4f6ee;border-left:4px solid #a8b87a;color:#4c5a2f}
+code{background:#eef1f4;padding:1px 5px;border-radius:3px;font-size:.92em}
+img{max-width:100%;height:auto}
+.meta{background:#f0f4f8;border:1px solid #d5dee8;border-radius:6px;padding:8px 14px;
+font-size:13px;color:#42566b;margin-bottom:18px}
+.gallery{display:flex;flex-wrap:wrap;gap:14px}.gallery figure{margin:0;width:230px}
+.gallery img{border:1px solid #ccd;max-height:200px;object-fit:contain;background:#fafafa;width:100%}
+.gallery figcaption{font-size:12px;color:#555;word-break:break-all}
+hr{border:none;border-top:1px solid #d8dee6;margin:22px 0}</style></head><body>
+<div class="meta"><b>project</b>: SS03 · <b>doc</b>: GDD · <b>interaction</b>: slot · <b>board</b>: reel · <b>status</b>: draft · <b>owner</b>: Game PM (TBC)</div>
+<h1>SS03 Mahjong Streak 麻將連莊 · GDD（游戏设计文档）</h1>
+<blockquote>本文是 auto-art 的游戏上下文来源，美术只读参考，不设签字。视觉审签对象见 <code>ADD.md</code>。</blockquote>
+<blockquote>本版（v1.1.0）玩法结构与数学示例值已按实测定稿；仅 RTP / 符号权重 / 货币等运营侧数值保留 §6 TBC。</blockquote>
+<hr>
+<h2>§1 项目定位</h2>
+<p>麻将招财主题的视频 slot：符号为麻将牌面，中奖走 Tumble（级联连消）+「连莊」递增倍率玩法——盘面消除后剩余符号塌落、空位再填充，同一局内每连消一轮，全局倍率沿档位递增，直至无新的中奖组合。金色麻将是本作标志机制：金符参与中奖后原位转化为「百搭」。</p>
+<li>代号：SS03</li>
+<li>interaction：slot</li>
+<li>board：reel（tumble 级联；4-5-5-5-4 异形盘面，见 §3）</li>
+<li>参考游戏：无（原创麻将 slot；客户端沿用平台共用 Unity-middleware 外壳）</li>
+<li>屏幕与适配：1080×1920 基准 portrait；landscape 下同一竖版画布居中、两侧由全幅背景延展（实测无独立横版布局）</li>
+<li>语言：英文(en), 印度语(hi), 印尼文(id), 韩文(ko), 马来文(ms-MY), 泰文(th), 越南文(vi), 简体中文(zh-hans), 繁体中文(zh-hant)（共 9，另有 Shared 非语言共用表；实测 Localization 表即此 9 locale）</li>
+<li>货币：TBC（见 §6，由运营 / PM 定；金额显示两位小数）</li>
+<li>目标 RTP：TBC（见 §6，数学组定；支持多套可换数学表按运营配置分配）</li>
+<li>非目标：不自建钱包（依赖平台 Wallet API）；不含社交分享；不含 jackpot</li>
+<hr>
+<h2>§2 游戏流程与状态机</h2>
+<p>外壳层（React）负责 Loading / 异常 / 桥接，Unity 层负责基础转、Tumble 结算、连莊倍率与 Free Spin。状态标识符 snake_case。</p>
+<table><tr><th>状态</th><th>标识符</th><th>说明</th></tr>
+<tr><td>加载</td><td><code>loading</code></td><td>bootstrap：背景 + Loading 进度，等待登录 + 资产 + Unity GameReady</td></tr>
+<tr><td>入场</td><td><code>entry</code></td><td>入场页（背景 + 标题 + 开始按钮），点击进入主游戏</td></tr>
+<tr><td>主游戏</td><td><code>main_game</code></td><td>转轴就绪，等待投注 / Spin</td></tr>
+<tr><td>转轴判定</td><td><code>spin_resolve</code></td><td>一次 Spin 落定后判定中奖组合（左起连列 ways，见 §3）</td></tr>
+<tr><td>级联消除</td><td><code>tumble_cascade</code></td><td>中奖符号消除（金符原位转百搭）→ 塌落 → 填充；每轮倍率档 +1（连莊）</td></tr>
+<tr><td>中奖演出</td><td><code>win_present</code></td><td>每轮结算横幅 + 达档触发 大奖 / 巨奖 / 超级巨奖 演出层</td></tr>
+<tr><td>免费旋转公告</td><td><code>free_spin_announce</code></td><td>最终盘面胡（Scatter）≥3 触发；公告 / 引导 / 开始确认屏</td></tr>
+<tr><td>免费旋转进行</td><td><code>free_spin_play</code></td><td>Free Spin 循环：倍率档翻倍梯（×2/×4/×6/×10），reel3 全金</td></tr>
+<tr><td>免费旋转结束</td><td><code>free_spin_end</code></td><td>结束确认屏（累积奖金），回主游戏</td></tr>
+<tr><td>维护 / 异常</td><td><code>maintenance</code></td><td>外壳 exception 归一态（全屏暗框）</td></tr>
+</table>
+<p>```</p>
+<p>loading ─► entry ─► main_game ──on_spin──► spin_resolve ──有中奖──► tumble_cascade ──┐</p>
+<p>              ▲                              │                        │ (循环;倍率+1) │</p>
+<p>              │                              │无中奖                   └──────────────┘</p>
+<p>              │                              ▼                            每轮 │</p>
+<p>              │                          main_game ◄── win_present ◄──────────┘</p>
+<p>              │                              │ 最终盘面胡≥3</p>
+<p>              │                              └──► free_spin_announce ─► free_spin_play ─► free_spin_end ─┐</p>
+<p>              └──────────────────────────────────────────────────────────────────────────────────────────┘</p>
+<p>loading/main_game ──exception──► maintenance ──(清除)──► loading</p>
+<p>main_game ──ExitGame(backURL / history.back)──► [退出]</p>
+<p>```</p>
+<p>标准局流程：设定投注额 → Spin → 落定后按「左起连列」判定各符号 ways → 有奖则逐轮级联（消除 / 金符转百搭 / 塌落 / 填充），倍率档随轮次递增，赢分逐轮累计 → 最终盘面统计胡数量，≥3 触发 Free Spin → 免费局倍率梯翻倍、第 3 轴全金。</p>
+<hr>
+<h2>§3 核心玩法</h2>
+<table><tr><th>参数</th><th>标识符</th><th>规格</th><th>默认值</th></tr>
+<tr><td>盘面几何</td><td><code>board_geometry</code></td><td>5 列异形：边列 4 格、中三列 5 格（4-5-5-5-4，共 23 格）；顶部另有半格预览位</td><td>实测定稿</td></tr>
+<tr><td>中奖判定</td><td><code>win_evaluation</code></td><td>左起连列 ways：符号须自第 1 列起连续出现 ≥3 列，ways=各列命中数乘积；全盘最大 4·5·5·5·4=2000 ways</td><td>实测定稿</td></tr>
+<tr><td>级联消除</td><td><code>tumble_cascade</code></td><td>中奖符号消除 → 塌落 → 按轴带填充，循环至无新中奖</td><td>实测定稿</td></tr>
+<tr><td>连莊倍率</td><td><code>streak_multiplier</code></td><td>同局级联轮次驱动全局倍率：基础局 ×1/×2/×3/×5（第 4 轮起封顶）；免费局 ×2/×4/×6/×10</td><td>实测定稿</td></tr>
+<tr><td>金符转百搭</td><td><code>gold_to_wild</code></td><td>金色麻将仅现于第 2/3/4 列；参与中奖后不消除、原位转化为百搭</td><td>实测定稿</td></tr>
+<tr><td>百搭</td><td><code>wild_baida</code></td><td>替代除胡外全部符号；自身无独立赔付、无倍率</td><td>实测定稿</td></tr>
+<tr><td>胡（Scatter）</td><td><code>scatter_hu</code></td><td>全列可现；一局<b>最终盘面</b>计数 ≥3 触发免费；不参与派彩</td><td>实测定稿</td></tr>
+<tr><td>免费旋转</td><td><code>free_spin</code></td><td>胡 3/4/5/6/7 → 10/12/14/16/18 次；免费中再触发按同表追加（retrigger）；免费局第 3 轴全金（除百搭/胡）</td><td>实测定稿</td></tr>
+<tr><td>购买免费</td><td><code>buy_free_spins</code></td><td>「Buy 10 FG」入口具备（客户端存量），上线口径与定价 TBC</td><td>TBC</td></tr>
+</table>
+<hr>
+<h2>§4 数学框架</h2>
+<p>派彩以「注额积分」为单位：<b>Bet Credit = 总注 / 20</b>。</p>
+<table><tr><th>项</th><th>公式/规格</th><th>示例值</th></tr>
+<tr><td>单组派彩</td><td><code>payout = BetCredit × 符号赔率(连列数) × ways × 当轮倍率</code></td><td>见下赔付表</td></tr>
+<tr><td>赔付表</td><td>9 符号 × 3/4/5 连列赔率（金符与同名白符同赔率）</td><td>实测定稿（下表）</td></tr>
+<tr><td>连莊倍率</td><td>基础 ×1/×2/×3/×5；免费 ×2/×4/×6/×10（按级联轮次取档，封顶第 4 档）</td><td>实测定稿</td></tr>
+<tr><td>免费触发</td><td>胡 3/4/5/6/7 → 10/12/14/16/18 次</td><td>实测定稿</td></tr>
+<tr><td>目标 RTP / 波动</td><td>多套可换数学表（转轴带 / 权重按表分配）</td><td>TBC</td></tr>
+<tr><td>符号权重 / 转轴带</td><td>服务端数学表交付</td><td>TBC</td></tr>
+<tr><td>单局上限</td><td>服务端按玩家配置有最大派彩封顶（MaxPayout）</td><td>数值 TBC</td></tr>
+</table>
+<p>赔付表（赔率 × BetCredit；3 / 4 / 5 连列）：</p>
+<table><tr><th>符号</th><th>3 连</th><th>4 连</th><th>5 连</th></tr>
+<tr><td>發</td><td>10</td><td>25</td><td>50</td></tr>
+<tr><td>中</td><td>8</td><td>20</td><td>40</td></tr>
+<tr><td>白</td><td>6</td><td>15</td><td>30</td></tr>
+<tr><td>八萬</td><td>5</td><td>10</td><td>15</td></tr>
+<tr><td>五筒</td><td>3</td><td>5</td><td>12</td></tr>
+<tr><td>五條</td><td>3</td><td>5</td><td>12</td></tr>
+<tr><td>三筒</td><td>2</td><td>4</td><td>10</td></tr>
+<tr><td>二筒</td><td>1</td><td>3</td><td>6</td></tr>
+<tr><td>二條</td><td>1</td><td>3</td><td>6</td></tr>
+</table>
+<blockquote>金色变体（發~二條各一）赔率与同名白符完全一致；其价值在「中奖后转百搭」。胡 / 百搭无独立赔付行。</blockquote>
+<hr>
+<h2>§5 系统边界（美术相关）</h2>
+<table><tr><th>边界</th><th>触发</th><th>是否产生 UI 素材</th><th>说明</th></tr>
+<tr><td>断线重连</td><td>运行中网络中断</td><td>yes</td><td>重连提示 / Toast（"连接服务器中…"）；恢复后回到中断前状态</td></tr>
+<tr><td>闲置登出</td><td>3 分钟未下注</td><td>yes</td><td>提示弹窗（"3 分钟未旋转已登出"）+ Reload</td></tr>
+<tr><td>余额不足</td><td>下注 &gt; 余额</td><td>yes</td><td>提示弹窗（"余额不足请充值"）</td></tr>
+<tr><td>单一 session</td><td>同账号他处登录</td><td>yes</td><td>弹窗提示，禁止双端并行</td></tr>
+<tr><td>外壳异常态</td><td>平台维护 / 版本 / 货币不支持等</td><td>yes</td><td>全屏纯 CSS 暗框（标题 + 描述 + 可选退出按钮 + 版本号）</td></tr>
+<tr><td>语言切换</td><td>Unity 内切语言</td><td>yes</td><td><code>SetLanguage</code> 桥同步外壳 locale；标题 / 演出图按语言换图（ADD §3e / §6）</td></tr>
+<tr><td>派彩 / 结算失败</td><td>Wallet / 结算返回失败</td><td>yes</td><td>处理中 / 重试提示（文案见共用壳 exceptions，ADD §8）</td></tr>
+</table>
+<hr>
+<h2>§6 TBC 表</h2>
+<table><tr><th>item</th><th>owner</th><th>影响范围</th></tr>
+<tr><td>目标 RTP / 波动 / 数学表分配策略</td><td>数学组</td><td>§4 数值层</td></tr>
+<tr><td>符号权重 / 转轴带</td><td>数学组</td><td>§4 数值层</td></tr>
+<tr><td>单局最大派彩（MaxPayout）具体值</td><td>数学组 + 运营</td><td>§4、中奖上限展示</td></tr>
+<tr><td>购买免费（Buy 10 FG）上线口径与定价</td><td>PM + 数学组</td><td>§3 <code>buy_free_spins</code>、ADD 对应入口素材</td></tr>
+<tr><td>货币列表 + 各币种显示规则</td><td>运营 + PM</td><td>§1 货币、下注 / 派彩数字显示</td></tr>
+<tr><td>Dev / Staging / QA / UAT 排期</td><td>PM</td><td>交付节点</td></tr>
+</table>
+<hr>
+<h2>Changelog</h2>
+<table><tr><th>版本</th><th>日期</th><th>delta</th></tr>
+<tr><td>v1.0.0</td><td>2026-07-02</td><td>初版：Tumble slot 玩法骨架 + Free Spin + 中奖分档确证入正文；全部玩法数值挂 §6 TBC</td></tr>
+<tr><td>v1.0.1</td><td>2026-07-02</td><td>语言口径改为 9 locale + Shared 共用表（my=ms-MY Malay），删缅甸文；locale 总数挂 §6 TBC（owner: PM）</td></tr>
+<tr><td>v1.1.0</td><td>2026-07-09</td><td>游戏层实测定稿：盘面 4-5-5-5-4、左起连列 ways（max 2000）、连莊倍率梯（基础 ×1/2/3/5、免费 ×2/4/6/10）、金符转百搭、胡触发表（3-7→10-18 次 + retrigger）、免费 reel3 全金、赔付表全量、派彩公式（BetCredit=总注/20）、locale 定为 9、闲置登出/余额不足边界入 §5；新增 <code>entry</code> 态与 <code>buy_free_spins</code>（上线口径 TBC）；§6 TBC 由 12 项缩至 6 项</td></tr>
+</table>
+</body></html>
