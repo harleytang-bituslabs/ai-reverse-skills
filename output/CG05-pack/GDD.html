@@ -1,0 +1,125 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>CG05-pack GDD</title><style>body{font:15px/1.65 -apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;
+max-width:1080px;margin:24px auto;padding:0 20px;color:#1c2733}
+h1{font-size:26px;border-bottom:2px solid #d8dee6;padding-bottom:8px}
+h2{font-size:20px;margin-top:34px;border-left:4px solid #4a7dbd;padding-left:10px}
+h3{font-size:16px;margin-top:24px}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:13.5px}
+th,td{border:1px solid #c9d2dc;padding:6px 9px;text-align:left;vertical-align:top}
+th{background:#eef2f7}tr:nth-child(even) td{background:#f7f9fb}
+blockquote{margin:10px 0;padding:8px 14px;background:#f4f6ee;border-left:4px solid #a8b87a;color:#4c5a2f}
+code{background:#eef1f4;padding:1px 5px;border-radius:3px;font-size:.92em}
+img{max-width:100%;height:auto}
+.meta{background:#f0f4f8;border:1px solid #d5dee8;border-radius:6px;padding:8px 14px;
+font-size:13px;color:#42566b;margin-bottom:18px}
+.gallery{display:flex;flex-wrap:wrap;gap:14px}.gallery figure{margin:0;width:230px}
+.gallery img{border:1px solid #ccd;max-height:200px;object-fit:contain;background:#fafafa;width:100%}
+.gallery figcaption{font-size:12px;color:#555;word-break:break-all}
+hr{border:none;border-top:1px solid #d8dee6;margin:22px 0}</style></head><body>
+<div class="meta"><b>project</b>: CG05 · <b>doc</b>: GDD · <b>interaction</b>: crash-step · <b>board</b>: grid · <b>status</b>: draft · <b>owner</b>: Nathan Kao (Game PM)</div>
+<h1>CG05 MineBeach 沙滩扫雷 · GDD(游戏设计文档)</h1>
+<blockquote>本文是 auto-art 的游戏上下文来源,美术只读参考,不设签字。视觉审签对象见 <code>ADD.md</code>。</blockquote>
+<blockquote>本版(v1.1.0)玩法结构、倍率表与会话边界已实测定稿;仅服务端运营口径(各币种档位、封顶与 Max Win 宣传值)保留 §6 TBC。</blockquote>
+<hr>
+<h2>§1 项目定位</h2>
+<p>沙滩主题 Mines 博弈小游戏:玩家在 5×5 沙滩盘面逐格翻沙块,安全格翻出金币、兑付倍率沿雷数对应的倍率梯上爬,可随时收款离场;翻到水雷即本局失败;翻完全部安全格自动按该雷数封顶倍率结算(Grand Prize)——<code>crash-step</code> 交互踩在 <code>grid</code> 盘面上。单人离散对局,无对局倒计时、无多人。竖屏移动优先。</p>
+<li>代号:CG05</li>
+<li>interaction:crash-step</li>
+<li>board:grid(5×5 = 25 格,行主序 index=row*5+col)</li>
+<li>参考游戏:Mines by Jili Games(玩法对标;实装视觉全量自研海滩题材)</li>
+<li>屏幕与适配:竖屏 portrait;<b>设计画布 1080×1920</b>,壳层 contain 等比缩放置中(实测定稿)</li>
+<li>语言:英文(en), 简体中文(zh), 繁体中文(tr), 葡萄牙语-巴西(pt)(共 <b>4</b>;实装语言表与语言弹窗均 4 项,pt 无专属 logo 回退英文)</li>
+<li>货币:专属图标 CNY / PHP / USD + 通用符号回退(小数位表另含 BRL=2;USD 2 / CNY 1 / PHP 0)</li>
+<li>目标 RTP:<b>0.975 系数实测可复算</b>(倍率表首档 = 公平赔率 × 0.975;深档被封顶截断,有效 RTP 低于 0.975,服务端口径为准)</li>
+<li>非目标(实测确认):不支持多人;不自建钱包(平台 Wallet API);无 Free Round;固定 5×5 不可改盘面;无社交分享;无 Jackpot / 星星格;<b>无手动输入注额</b>(仅选档);<b>无 Auto-Play / Auto-Cashout 面板</b></li>
+<hr>
+<h2>§2 游戏流程与状态机</h2>
+<table><tr><th>状态</th><th>标识符</th><th>说明</th></tr>
+<tr><td>启动加载</td><td><code>loading</code></td><td>logo + 进度条(boot/资产/配置/socket 四段聚合);完成出「Game Start」钮</td></tr>
+<tr><td>待机下注</td><td><code>betting</code></td><td>选注额+雷数;盘面全盖;第三钮=REFRESH 面(<b>入场即此态</b>)</td></tr>
+<tr><td>游戏中</td><td><code>playing</code></td><td>REFRESH 按下即下注扣款并开局;逐格翻开,任意时机可收款;首翻后第三钮变 CASH OUT</td></tr>
+<tr><td>爆雷</td><td><code>busted</code></td><td>翻中水雷,本局清零;全盘揭示 + 格内爆炸 + 全屏屏裂震动</td></tr>
+<tr><td>局结算</td><td><code>round_settled</code></td><td>盘面保持揭示(玩家翻的全亮、其余半透明);<b>无自动回投注</b>,等玩家再按 REFRESH 开下一局</td></tr>
+</table>
+<p><code>cash_out</code> 与 <code>perfect_clear</code> 为<b>瞬态事件</b>(同一信号 <code>NET_MY_CASHOUT</code>,以 <code>isUltimate</code> 区分),不驻留状态。</p>
+<p>```</p>
+<p>loading ──就绪+Game Start──► betting ──REFRESH(=下注+开局)──► playing</p>
+<p>   ▲                            ▲                              │</p>
+<p>   │                            │              ┌──[翻格 safe]──┤ (倍率沿梯上爬,可随时 CASH OUT)</p>
+<p>   │                            │              ├──[翻格 mine]──► busted ──────┐</p>
+<p>   │                            │              ├──[CASH OUT]──► (YOU WIN 4s) ─┤</p>
+<p>   │                            │              └──[翻满安全格]─► Grand Prize ──┤</p>
+<p>   │                            └────────(玩家按 REFRESH,盘面才重盖)◄─ round_settled</p>
+<p>   └─(异常)── maintenance / 错误弹窗</p>
+<p>```</p>
+<li>收款/爆雷/通关后盘面<b>保持揭示</b>直到下一次 REFRESH——没有结算读秒或 Play Again 按钮;YOU WIN 横幅自身 4 秒后淡出,但状态不回。</li>
+<li>覆层(settings / language / guide / history / warning / toast / 退出确认)叠加在主状态上,不进主状态机;settings 全屏覆层打开时吸收全部输入。</li>
+<li>标准局:选注额(弹层选档)→ 选雷数(3~24 弹层)→ 按 REFRESH 锁注 → 逐格点沙块(免费,一次一发)→ 任意格 CASH OUT 落袋 / 翻满自动 Grand Prize / 爆雷清零 → 盘面揭示展示 → 再按 REFRESH 开新局。锁注后不可改注额与雷数(选择器弹层被禁开)。</li>
+<hr>
+<h2>§3 核心玩法</h2>
+<table><tr><th>参数</th><th>标识符</th><th>规格</th><th>默认值</th></tr>
+<tr><td>下注金额</td><td><code>bet_amount</code></td><td>弹层选档(服务端 /bet/config 下发 <b>2~6 档</b> betList + defaultBet;无手动输入);兜底档 USD [0.2,0.5,1,3,5,10]</td><td>服务端 defaultBet(兜底:USD 1 / 其他币 0.1)</td></tr>
+<tr><td>地雷数</td><td><code>mine_count</code></td><td>整数 3~24,弹层 4 列×6 行数字矩阵(两个空格)</td><td>4</td></tr>
+<tr><td>盘面大小</td><td><code>grid_size</code></td><td>固定 5×5 = 25 格</td><td>25</td></tr>
+<tr><td>安全格</td><td><code>tile_safe</code></td><td>数量 = 25 − mine_count,翻开显示金币、倍率沿梯推进</td><td>—</td></tr>
+<tr><td>地雷格</td><td><code>tile_mine</code></td><td>数量 = mine_count,翻开即本局失败</td><td>—</td></tr>
+<tr><td>当前倍率</td><td><code>current_multiplier</code></td><td><b>查表制</b>:<code>MULT[mine_count][已翻安全格数−1]</code>(服务端倍率梯权威,见 §4);倍率条高亮当前档</td><td>未开局 0</td></tr>
+<tr><td>开局按钮</td><td><code>refresh</code></td><td>第三钮 REFRESH 面=重盖盘面+下注(<b>扣款点</b>);翻格本身免费</td><td>—</td></tr>
+<tr><td>翻格节流</td><td><code>go_throttle</code></td><td>单发飞行门(一次一格)+ 600ms 节流</td><td>—</td></tr>
+</table>
+<p>玩法要点:</p>
+<li>Cash Out:<code>playing</code> 中首翻后任意时机,<code>payout = bet_amount × MULT[m][k]</code>,服务端回执 <code>payoutAmount</code> 为权威;收款请求期间按钮置灰、双击被 pending 门拦截。</li>
+<li>完美通关:翻完全部安全格,服务端在最后一格回执直接标记完局(<code>gameOver=true</code>),按该雷数封顶倍率自动兑付并触发 Grand Prize 演出;余额更新延迟到演出弹出瞬间才入账(防剧透)。</li>
+<li>爆雷:翻中雷,回执附全部雷位,全盘揭示(玩家翻的全亮,其余 50% 透明,踩中的雷带爆炸特效),损失本金。</li>
+<li>揭示保持:局末盘面不自动重盖——是「上一局的证据」,直到玩家主动开新局。</li>
+<hr>
+<h2>§4 数学框架</h2>
+<p>倍率表为<b>服务端权威</b>:连接后 <code>client:routes</code> 一次性下发全部 22 条倍率梯(雷数 3~24 各一条),开局回执再附本局梯;前端内置同值副本仅作离线兜底。实测表(前端副本,与后端逐档一致交付):</p>
+<p><code>MULT[m][k]</code> = 雷数 m、已翻 k 个安全格的兑付倍率;每行末档 = 该雷数<b>满盘封顶</b>(自动兑付值)。</p>
+<table><tr><th>雷数区间</th><th>封顶倍率</th><th>首档示例(k=1)</th><th>档数</th></tr>
+<tr><td>3 ~ 5</td><td><b>20.00x</b></td><td>1.11 / 1.16 / 1.22</td><td>22 / 21 / 20</td></tr>
+<tr><td>6 ~ 10</td><td><b>80.00x</b></td><td>1.28 / 1.35 / 1.43 / 1.52 / 1.62</td><td>19~15</td></tr>
+<tr><td>11 ~ 15</td><td><b>300.00x</b></td><td>1.74 / 1.88 / 2.03 / 2.22 / 2.44</td><td>14~10</td></tr>
+<tr><td>16 ~ 20</td><td><b>800.00x</b></td><td>2.71 / 3.05 / 3.48 / 4.06 / 4.88</td><td>9~5</td></tr>
+<tr><td>21 ~ 23</td><td><b>200.00x</b></td><td>6.09 / 8.12 / 12.19</td><td>4 / 3 / 2</td></tr>
+<tr><td>24</td><td><b>24.38x</b></td><td>24.38(单档即封顶)</td><td>1</td></tr>
+</table>
+<p>逐档样例(全量 22 行随交付物 <code>elements</code> 附):</p>
+<table><tr><th>雷数 \ 已翻格</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th></tr>
+<tr><td>3</td><td>1.11</td><td>1.27</td><td>1.46</td><td>1.68</td><td>1.92</td><td>2.21</td></tr>
+<tr><td>4(默认)</td><td>1.16</td><td>1.34</td><td>1.54</td><td>1.78</td><td>2.05</td><td>2.36</td></tr>
+<tr><td>10</td><td>1.62</td><td>2.15</td><td>2.84</td><td>3.75</td><td>4.95</td><td>6.53</td></tr>
+<tr><td>20</td><td>4.88</td><td>17.45</td><td>62.45</td><td>223.52</td><td>800.00</td><td>—</td></tr>
+<tr><td>24</td><td>24.38</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+</table>
+<li><b>RTP 复算</b>:公平倍率 <code>fair(k)=C(25,k)/C(25−m,k)</code>;实测首段各档 ≈ fair×0.975(例:m=24,k=1 → 25×0.975=24.375→24.38;m=3,k=1 → 25/22×0.975≈1.108→1.11)。深档被封顶截断(m=3 的公平尾档远超 20x),该段有效 RTP 低于 0.975——封顶策略与整体 RTP 的最终口径以数学组/服务端为准(§6)。</li>
+<li><b>口径矛盾(实装事实)</b>:玩法说明页文案写 “Max Win: x10,000 / Max Payout = Max Win × Max Bet”,而倍率表最大封顶 800.00x。两处同时存在于实装,服务端运营口径待定(§6)。</li>
+<li>显示格式:倍率 <code>toFixed(2)+"X"</code>;金额按币种小数位(USD 2 / CNY 1 / PHP 0 / BRL 2,其余 2)。</li>
+<hr>
+<h2>§5 系统边界(美术相关)</h2>
+<table><tr><th>边界</th><th>触发</th><th>是否产生 UI 素材</th><th>说明</th></tr>
+<tr><td>余额不足</td><td>注额 &gt; 余额(REFRESH 时校验)</td><td>yes</td><td>Toast「Insufficient balance…」,下注阻断</td></tr>
+<tr><td>请求失败</td><td>下注/翻格/收款 ACK 超时 <b>8s</b></td><td>yes</td><td>Toast「Server did not respond. Please retry.」(1s)+按钮回弹再试</td></tr>
+<tr><td>断线自动兑付</td><td><code>playing</code> 中断线</td><td>yes</td><td>常驻 Toast 重连中+<b>15s 倒数</b>(每秒 tick);归零由服务端自动兑付;重连成功 3s Toast</td></tr>
+<tr><td>闲置超时</td><td>服务端 <code>idle-timeout</code> 告警</td><td>yes</td><td>Warning 弹窗(带倒数文案)→ 自动兑付;确认钮=手动重连</td></tr>
+<tr><td>重连耗尽</td><td>socket.io 自动重连 ≤10 次(退避 1~5s)全败</td><td>yes</td><td>Warning 弹窗「Connection lost…」;确认=再试一次,10s watchdog 兜底整页刷新</td></tr>
+<tr><td>会话过期</td><td>token 失效 / <code>server:game:expired</code></td><td>yes</td><td>常驻/3s Toast「Session expired…」;进行中的局防御性收局</td></tr>
+<tr><td>单一 session</td><td>同账号他端进入</td><td>yes</td><td>服务端 <code>sso-disconnected</code> 弹窗踢出;该断线<b>不进</b> 15s 倒数</td></tr>
+<tr><td>收款进行中</td><td>Cash Out 未回执</td><td>yes</td><td>收款钮置灰,盘面与选择器锁定,直到回执</td></tr>
+<tr><td>会话续局</td><td>断线/刷新后重进且局未结</td><td>yes</td><td>快照恢复:重放已翻格、锁 UI 为 CASH OUT 态、倍率条回到当前档(无重播动画)</td></tr>
+<tr><td>维护/封禁/币种不支持</td><td>平台异常态</td><td>yes</td><td>DOM 维护屏(羊皮纸面板+右上退出钮,仅 backURL 存在时显示)</td></tr>
+</table>
+<hr>
+<h2>§6 TBC 表</h2>
+<table><tr><th>item</th><th>owner</th><th>影响范围</th></tr>
+<tr><td>Max Win 口径(文案 x10,000 vs 表封顶 800x)与封顶对 RTP 的影响</td><td>数学组 + 服务端</td><td>§4 数值展示、guide 文案</td></tr>
+<tr><td><code>bet_amount</code> 各币种档位表(2~6 档,BO 配置)</td><td>产品 + BackOffice</td><td>§3 下注弹层选项</td></tr>
+<tr><td>玩法说明正文终稿(4 语言;现为 locale 键 rules-p1~p4)</td><td>PM + 本地化</td><td>guide 页文案</td></tr>
+<tr><td>pt(巴葡)完整键表与 logo 是否补专属版</td><td>本地化 + 美术</td><td>§1 语言;loading/场内 logo</td></tr>
+</table>
+<hr>
+<h2>Changelog</h2>
+<table><tr><th>版本</th><th>日期</th><th>delta</th></tr>
+<tr><td>v1.0.1</td><td>2026-06-29</td><td>下注仅选默认 Bet Option(移除金额输入框);<code>reconnect_timeout</code> 依运营商上限处理;FE/BE Lead 记为 Jack Liao</td></tr>
+<tr><td>v1.1.0</td><td>2026-07-09</td><td>实测定稿:画布 1080×1920;语言 10→<b>4</b>(en/zh/tr/pt,pt 回退英文 logo);币种=图标 3+回退(小数位表含 BRL);状态机改实测(<b>REFRESH=下注+开局的扣款点</b>、翻格免费、局末盘面保持揭示<b>无自动回投注</b>、cash_out/perfect_clear 为瞬态事件、移除 <code>payout_pending</code> 客户端态改为收款 pending 门+超时重试 Toast);§4 倍率表全量实值(22 条梯、封顶 20/80/300/800/200/24.38、RTP 0.975 系数可复算、深档封顶截断)并记录 Max Win x10,000 文案矛盾;投注档确认服务端 2~6 档无手输;§5 补实测边界(ACK 8s、断线 15s 倒数自动兑付、重连 ≤10 次+10s watchdog、SSO 不进倒数、快照续局重放已翻格);§6 TBC 由 6 项改为 4 项</td></tr>
+</table>
+</body></html>
