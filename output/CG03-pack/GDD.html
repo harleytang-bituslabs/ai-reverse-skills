@@ -1,0 +1,117 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>CG03-pack GDD</title><style>body{font:15px/1.65 -apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;
+max-width:1080px;margin:24px auto;padding:0 20px;color:#1c2733}
+h1{font-size:26px;border-bottom:2px solid #d8dee6;padding-bottom:8px}
+h2{font-size:20px;margin-top:34px;border-left:4px solid #4a7dbd;padding-left:10px}
+h3{font-size:16px;margin-top:24px}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:13.5px}
+th,td{border:1px solid #c9d2dc;padding:6px 9px;text-align:left;vertical-align:top}
+th{background:#eef2f7}tr:nth-child(even) td{background:#f7f9fb}
+blockquote{margin:10px 0;padding:8px 14px;background:#f4f6ee;border-left:4px solid #a8b87a;color:#4c5a2f}
+code{background:#eef1f4;padding:1px 5px;border-radius:3px;font-size:.92em}
+img{max-width:100%;height:auto}
+.meta{background:#f0f4f8;border:1px solid #d5dee8;border-radius:6px;padding:8px 14px;
+font-size:13px;color:#42566b;margin-bottom:18px}
+.gallery{display:flex;flex-wrap:wrap;gap:14px}.gallery figure{margin:0;width:230px}
+.gallery img{border:1px solid #ccd;max-height:200px;object-fit:contain;background:#fafafa;width:100%}
+.gallery figcaption{font-size:12px;color:#555;word-break:break-all}
+hr{border:none;border-top:1px solid #d8dee6;margin:22px 0}</style></head><body>
+<div class="meta"><b>project</b>: CG03 · <b>doc</b>: GDD · <b>interaction</b>: crash-step · <b>board</b>: lane-scene · <b>status</b>: draft · <b>owner</b>: Game PM (TBC)</div>
+<h1>CG03 Cluck Dash 小鸡狂奔 · GDD（游戏设计文档）</h1>
+<blockquote>本文是 auto-art 的游戏上下文来源，美术只读参考，不设签字。视觉审签对象见 <code>ADD.md</code>。</blockquote>
+<blockquote>本版（v1.1.0）玩法结构与数学示例值已按实测定稿；仅币种投注区间等运营侧数值保留 §6 TBC。</blockquote>
+<hr>
+<h2>§1 项目定位</h2>
+<p>步进式倍率 crash game：小鸡横向逐格冲过马路，每安全过一格倍率沿难度曲线上爬，玩家在每格之间自主决定 CASH OUT（锁定收益）或 GO（继续赌下一格）；被车撞即本局清零，走到赛道尽头按封顶倍率自动结算（Ultimate Win）——<code>crash-step</code> 交互踩在 <code>lane-scene</code>（横向卷轴场景）盘面上。单人离散对局，无对局倒计时、无多人广播、无跨局奖池。竖屏移动优先。</p>
+<li>代号：CG03</li>
+<li>interaction：crash-step</li>
+<li>board：lane-scene（横向卷轴马路，向左滚动；小鸡视觉固定屏幕中央偏左，锚点 x474）</li>
+<li>参考游戏：Chicken Road 2（InOut Games，玩法对标）</li>
+<li>屏幕与适配：竖屏 portrait；<b>设计画布 1080×1920</b>，壳层 contain 等比缩放 + 黑边居中（实测定稿）</li>
+<li>语言：英文(en), 简体中文(zh), 繁体中文(tr)（logo 出三语言变体；locale 键名 <code>tr</code> 落地内容为繁体中文）</li>
+<li>货币：CNY, PHP, USD（顶栏货币符号图标三币种 + 通用符号回退）</li>
+<li>非目标：不做 4 赛道差异化视觉换皮（v1 共用一套美术）；不做乘客 / 载具 cinematic；不做多人 / 跨局奖池 / 对局倒计时；不做 Bonus Game / Buy Bonus（实测确认无此屏与资产）；不做横版独立资产；不自建钱包（依赖平台 Wallet API）</li>
+<hr>
+<h2>§2 游戏流程与状态机</h2>
+<table><tr><th>状态</th><th>标识符</th><th>说明</th></tr>
+<tr><td>启动加载</td><td><code>loading</code></td><td>logo + 进度条（含错误 / 重连面板）；完成后出「开始」按钮</td></tr>
+<tr><td>待机下注</td><td><code>betting</code></td><td>下注 + 选赛道，等点 PLAY；场景显示小鸡待机 + 前方 2 个待机井盖</td></tr>
+<tr><td>飞行中</td><td><code>flying</code></td><td>已锁注逐格推进；每格之间等玩家 CASH OUT / GO（GO 请求由服务端逐格判定回执）</td></tr>
+<tr><td>撞车</td><td><code>crashed</code></td><td>服务端判定撞车，本局清零；场景内撞车演出（车压顶 + 红闪），无独立覆层</td></tr>
+<tr><td>结算展示</td><td><code>settled</code></td><td>兑付 / 撞车 / 通关后的结果展示期；<b>普通 4s / 通关 10s 后自动回 <code>betting</code>（无 Play Again 按钮）</b></td></tr>
+</table>
+<p>```</p>
+<p>loading ──就绪+开始──► betting ──PLAY(锁注)──► flying(首格自动 GO)</p>
+<p>  ▲                        ▲                    │</p>
+<p>  │                        │            ┌─[safe]┴─(逐格: 倍率上爬, 等 GO/CASH OUT)</p>
+<p>  │                        │            ├─[crash]────► crashed ─┐</p>
+<p>  │                        │            ├─[CASH OUT]─► settled ◄┘</p>
+<p>  │                        │            └─[走满全程]─► Ultimate Win → settled(10s)</p>
+<p>  │                        └───────(4s/10s 自动)──────── settled</p>
+<p>  └─(异常)─ maintenance / 错误弹窗</p>
+<p>```</p>
+<li>HUD 双态（PlayState）：<code>bet</code>（难度选择 + PLAY 大钮）⇄ <code>cashout</code>（CASHOUT + GO 双钮）。</li>
+<li>覆层（settings / language_picker / guide / history / warning / toast）叠加在主状态上、不进主状态机；settings 全屏覆层打开时吸收全部输入。</li>
+<p>标准局流程：设定投注额 → 选赛道 → PLAY 锁注并自动走第 1 格 → 逐格：起跳 → 路障弹出挡车 → 落格 → 身后井盖翻金 → 加成预告 →（下一次 GO 时提交上一格加成)→ 等决策 → 任意格 CASH OUT 落袋 / GO 继续 / 走满全程自动 Ultimate Win。锁注后不可改投注额与赛道。</p>
+<hr>
+<h2>§3 核心玩法</h2>
+<table><tr><th>参数</th><th>标识符</th><th>规格</th><th>默认值</th></tr>
+<tr><td>投注金额</td><td><code>bet_amount</code></td><td>快捷筹码 <b>5 档直接置值</b>（服务端 /bet/config 下发，UI 恰按 5 档布局）+ MIN / MAX 步进钮；无手动输入框</td><td>服务端 defaultBet（缺省回退 1.00）</td></tr>
+<tr><td>赛道</td><td><code>difficulty</code></td><td>4 档：<code>EASY / MEDIUM / HARD / HARDCORE</code>（向上弹出的下拉选择器）</td><td>EASY</td></tr>
+<tr><td>车道总数</td><td><code>total_lanes</code></td><td>按赛道 28 / 22 / 18 / 14 格</td><td>28（EASY）</td></tr>
+<tr><td>当前倍率</td><td><code>current_multiplier</code></td><td><b>乘法合成</b>：<code>eff = 逐格倍率 x_k × (1 + 累计加成 cumulative_bonus)</code></td><td>起步 x_1（EASY=1.01）</td></tr>
+<tr><td>翻盖加成</td><td><code>reveal_bonus</code></td><td>4 档 <code>none/+0.10/+0.30/+0.50</code>；<b>Model B 提交</b>：到达格仅预告，下一次 GO 时提交进累计；累计封顶 <code>b_max=2.0</code></td><td>none</td></tr>
+<tr><td>视野</td><td><code>preview</code></td><td>待机显 2 个待机井盖；飞行中显示<b>下一格</b>倍率预告（井盖气泡 + GO 按钮同步显示 <code>{next}x</code>）</td><td>下一格</td></tr>
+<tr><td>步进节流</td><td><code>go_throttle</code></td><td>GO 请求节流 600ms（=跳跃动画时长）；双钮另有 0.65s 软锁</td><td>—</td></tr>
+</table>
+<p>玩法要点：</p>
+<li>Cash Out：飞行中任意格触发，<code>payout = bet_amount × eff</code>（服务端回执 <code>payoutAmount</code> 为权威，按钮上金额为估算显示）。</li>
+<li>撞车：GO 判定 <code>safe=false</code> 即撞车，损失本金；场景内演出（车冲入 + 红闪 + 小鸡倒地），结算 4s 后自动回投注。</li>
+<li>终点强制：走满 <code>total_lanes</code> 由服务端标记 <code>capTriggered</code> 自动按封顶结算，触发 Ultimate Win 过场（终点线 + 旗 + 金币彩带雨）。</li>
+<li>路径记忆：已走格保留翻金井盖与加成标签，随卷轴左移出屏。</li>
+<hr>
+<h2>§4 数学框架</h2>
+<p>数学表为<b>服务端常驻配置</b>（<code>routes.json</code>），实测定稿如下；运行时经 <code>client:routes</code> 下发难度曲线供 UI 铺格。</p>
+<p>全局：目标 <b>RTP = 0.96</b>；加成累计上限 <b>b_max = 2.0</b>；有效倍率 <code>eff = x_k × (1 + cumulative_bonus)</code>。</p>
+<table><tr><th>赛道</th><th>格数</th><th>封顶 x_n</th><th>曲线 γ</th><th>加成分布 none / +0.1 / +0.3 / +0.5</th><th>理论单局上限(eff)</th></tr>
+<tr><td>EASY</td><td>28</td><td>20.0</td><td>1.28</td><td>0.80 / 0.12 / 0.06 / 0.02</td><td>60x（=20×3）</td></tr>
+<tr><td>MEDIUM</td><td>22</td><td>20.0</td><td>1.30</td><td>0.75 / 0.14 / 0.08 / 0.03</td><td>60x</td></tr>
+<tr><td>HARD</td><td>18</td><td>25.0</td><td>1.33</td><td>0.70 / 0.16 / 0.10 / 0.04</td><td>75x</td></tr>
+<tr><td>HARDCORE</td><td>14</td><td>30.0</td><td>1.36</td><td>0.60 / 0.20 / 0.10 / 0.10</td><td>90x</td></tr>
+</table>
+<p>逐格判定顺序（每次 GO 服务端执行并回执）：</p>
+<p>```</p>
+<p>r1: if r1 &lt; p_hazard[lane] → crash, 本局清零</p>
+<p>safe: x = x_k[lane]                        # 逐格倍率曲线</p>
+<p>提交上一格加成预告 → cumulative_bonus(≤2.0)  # Model B</p>
+<p>r2: 按加成分布抽本格预告 tier(none/small/medium/big)</p>
+<p>eff = x × (1 + cumulative_bonus)</p>
+<p>if lane == total_lanes → capTriggered(Ultimate Win, 自动兑付)</p>
+<p>```</p>
+<li>逐格样例（EASY 28 格）：x_k = 1.01, 1.04, 1.10, 1.17, 1.25, …, 17.16, 20.00；p_hazard 单调升 0.051 → 0.157。HARDCORE 14 格：x_k = 1.07 → 30.00；p_hazard 0.111 → 0.335。四表全量随服务端配置交付。</li>
+<li>公平性：服务端带种子揭示机制（SeedReveal，provably-fair）；抽样细节由服务端实现。</li>
+<hr>
+<h2>§5 系统边界（美术相关）</h2>
+<table><tr><th>边界</th><th>触发</th><th>是否产生 UI 素材</th><th>说明</th></tr>
+<tr><td>网络请求失败</td><td>GO / 下注 ack 超时（8s）或断网</td><td>yes</td><td>Warning 弹窗 + 按钮 pending 置灰；重连后快照恢复续局</td></tr>
+<tr><td>断线自动兑付</td><td>flying 中断线</td><td>yes</td><td>Toast 倒数 <b>15s</b>（每秒 tick），归零自动兑付；服务端侧同步保障</td></tr>
+<tr><td>闲置超时</td><td><b>3 分钟无操作</b></td><td>yes</td><td>告警提示 + 15s 倒数自动兑付 + 会话过期弹窗（实测存在，产 UI）</td></tr>
+<tr><td>余额不足</td><td>投注额 &gt; 余额</td><td>yes</td><td>Toast 提示（i18n），PLAY 阻断</td></tr>
+<tr><td>会话续局</td><td>崩溃 / 关页后重进</td><td>yes</td><td>服务端保留对局；重进后快照恢复到原格续局（无动画重建盘面）</td></tr>
+<tr><td>重复登录</td><td>同账号他处登录</td><td>yes</td><td>SSO 弹窗踢出（不进倒数）</td></tr>
+<tr><td>收款进行中</td><td>CASH OUT 请求未回</td><td>yes</td><td>按钮 α0.5 置灰，直到结算回执</td></tr>
+</table>
+<hr>
+<h2>§6 TBC 表</h2>
+<table><tr><th>item</th><th>owner</th><th>影响范围</th></tr>
+<tr><td>投注步进 / 精度 / 区间（各币种）</td><td>产品 + BackOffice</td><td>§3 投注面板、/bet/config 配置</td></tr>
+<tr><td>各币种金额显示小数位规则</td><td>设计 + 数据</td><td>投注 / 派彩数字显示</td></tr>
+<tr><td>局中续局过期时长</td><td>产品</td><td>§5 会话续局</td></tr>
+<tr><td>how-to-play 指南终稿（三语言）</td><td>PM + 本地化</td><td>指南页正文与配图</td></tr>
+</table>
+<hr>
+<h2>Changelog</h2>
+<table><tr><th>版本</th><th>日期</th><th>delta</th></tr>
+<tr><td>v1.0.0</td><td>2026-07-02</td><td>初版：crash-step × lane-scene 双轴定型；玩法状态机、难度系统、翻盖加成、数学接入结构落定；数值项归并 §6 TBC</td></tr>
+<tr><td>v1.1.0</td><td>2026-07-09</td><td>实测定稿：分辨率 1080×1920；状态机改实名 betting/flying/crashed/settled（结算 4s/10s 自动回投注，<b>移除 Play Again 交互</b>）；倍率合成修正为<b>乘法</b> eff=x_k×(1+累计加成) 且累计封顶 b_max=2.0（Model B 提交时序）；数学全表实值（RTP 0.96、四赛道曲线/撞车概率/加成分布、理论上限 60/60/75/90x）；赛道名定为 EASY/MEDIUM/HARD/HARDCORE；快捷筹码为 5 档置值非累加、无手输框；语言口径修正（zh=简体，tr=繁体）；§5 修正：<b>存在 3 分钟闲置自动兑付</b>（原版误记为无超时）、补断线 15s 倒数与 SSO；确认无 Buy Bonus 屏与资产；Provably Fair 确认保留（SeedReveal）；§6 TBC 由 11 项缩至 4 项</td></tr>
+</table>
+</body></html>
